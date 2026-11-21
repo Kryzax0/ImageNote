@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- photo frame -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M30,32h48a4,4 0,0 1,4 4v36a4,4 0,0 1,-4 4h-48a4,4 0,0 1,-4 -4v-36a4,4 0,0 1,4 -4z" />
+    <path android:fillColor="#FF6E5BFF"
+        android:pathData="M31,37h46v34h-46z" />
+    <!-- mountains -->
+    <path android:fillColor="#FFB7AEFF"
+        android:pathData="M31,71l14,-16l9,10l7,-7l16,13z" />
+    <!-- speech/handwriting squiggle -->
+    <path android:strokeColor="#FF000000" android:strokeWidth="5"
+        android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M38,48c4,-6 8,6 12,0s8,6 12,0s6,4 8,0" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5"
+        android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M38,48c4,-6 8,6 12,0s8,6 12,0s6,4 8,0" />
+    <!-- mic badge -->
+    <path android:fillColor="#FFFF4D6D"
+        android:pathData="M78,70m-12,0a12,12 0,1 1,24 0a12,12 0,1 1,-24 0" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M75,62a3,3 0,0 1,6 0v8a3,3 0,0 1,-6 0z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:pathData="M72,69a6,6 0,0 0,12 0M78,75v3" />
+</vector>
