@@ -63,7 +63,7 @@ object NoteRenderer {
             .setIncludePad(true)
             .build()
         // Padding covers the outline, italic overhang and an optional background box.
-        val pad = strokePx + fontPx * (0.25f + style.slant * 0.5f)
+        val pad = strokePx + fontPx * (0.12f + style.slant * 0.4f)
         return Measured(
             layout, paint, fontPx, strokePx, pad,
             width = layout.width + pad * 2,
