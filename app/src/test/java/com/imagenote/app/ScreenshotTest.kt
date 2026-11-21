@@ -58,8 +58,12 @@ class RendererTest {
             TextNote(text = "Paint: warm white", x = 0.5f, y = 0.32f, style = NoteStyle(fontId = "dancing_script")),
             TextNote(text = "Ask Sam about the lights", x = 0.35f, y = 0.55f, rotation = -8f,
                 style = NoteStyle(fontId = "permanent_marker", size = 45f, slant = 0f)),
-            TextNote(text = "Measure window 2", x = 0.6f, y = 0.8f,
-                style = NoteStyle(fontId = "pacifico", textColor = 0xFFFFE14D.toInt(), background = BackgroundStyle.TRANSLUCENT)),
+            TextNote(text = "Measure window 2", x = 0.3f, y = 0.8f,
+                style = NoteStyle(fontId = "pacifico", size = 45f, textColor = 0xFFFFE14D.toInt(), background = BackgroundStyle.TRANSLUCENT)),
+            TextNote(text = "Neon glow", x = 0.78f, y = 0.72f,
+                style = NoteStyle(fontId = "satisfy", background = BackgroundStyle.GLOW, backgroundColor = 0xFFFF7A1A.toInt(), outlineWidth = 0.04f)),
+            TextNote(text = "Highlighter", x = 0.78f, y = 0.9f,
+                style = NoteStyle(fontId = "kalam", size = 45f, textColor = 0xFF000000.toInt(), outlineWidth = 0f, background = BackgroundStyle.HIGHLIGHT, backgroundColor = 0xFFFF7A1A.toInt())),
         )
         notes.forEachIndexed { i, n -> NoteRenderer.draw(canvas, ctx, n, 1200f, 900f, selected = i == 2) }
         save(bmp, "renderer")

@@ -4,10 +4,10 @@
     <!-- photo frame -->
     <path android:fillColor="#FFFFFFFF"
         android:pathData="M30,32h48a4,4 0,0 1,4 4v36a4,4 0,0 1,-4 4h-48a4,4 0,0 1,-4 -4v-36a4,4 0,0 1,4 -4z" />
-    <path android:fillColor="#FF6E5BFF"
+    <path android:fillColor="#FF1C1C22"
         android:pathData="M31,37h46v34h-46z" />
     <!-- mountains -->
-    <path android:fillColor="#FFB7AEFF"
+    <path android:fillColor="#FF3A3A44"
         android:pathData="M31,71l14,-16l9,10l7,-7l16,13z" />
     <!-- speech/handwriting squiggle -->
     <path android:strokeColor="#FF000000" android:strokeWidth="5"
@@ -17,7 +17,7 @@
         android:strokeLineCap="round" android:fillColor="#00000000"
         android:pathData="M38,48c4,-6 8,6 12,0s8,6 12,0s6,4 8,0" />
     <!-- mic badge -->
-    <path android:fillColor="#FFFF4D6D"
+    <path android:fillColor="#FFFF7A1A"
         android:pathData="M78,70m-12,0a12,12 0,1 1,24 0a12,12 0,1 1,-24 0" />
     <path android:fillColor="#FFFFFFFF"
         android:pathData="M75,62a3,3 0,0 1,6 0v8a3,3 0,0 1,-6 0z" />

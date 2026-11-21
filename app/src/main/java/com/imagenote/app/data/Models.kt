@@ -22,6 +22,8 @@ enum class TextAlign { LEFT, CENTER, RIGHT }
 enum class BackgroundStyle(val label: String) {
     NONE("None"),
     SHADOW("Soft shadow"),
+    GLOW("Neon glow"),
+    HIGHLIGHT("Highlighter"),
     TRANSLUCENT("Dim box"),
     SOLID("Solid box"),
 }
@@ -49,6 +51,8 @@ data class NoteStyle(
     /** Max line width as a fraction of image width before wrapping. */
     val maxWidth: Float = 0.85f,
     val allCaps: Boolean = false,
+    /** 0.1 .. 1 */
+    val opacity: Float = 1f,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("fontId", fontId)
@@ -65,6 +69,7 @@ data class NoteStyle(
         put("backgroundColor", backgroundColor)
         put("maxWidth", maxWidth.toDouble())
         put("allCaps", allCaps)
+        put("opacity", opacity.toDouble())
     }
 
     companion object {
@@ -87,6 +92,7 @@ data class NoteStyle(
                 backgroundColor = o.optInt("backgroundColor", d.backgroundColor),
                 maxWidth = o.optDouble("maxWidth", d.maxWidth.toDouble()).toFloat(),
                 allCaps = o.optBoolean("allCaps", d.allCaps),
+                opacity = o.optDouble("opacity", 1.0).toFloat(),
             )
         }
     }
@@ -104,6 +110,8 @@ data class TextNote(
     val rotation: Float = 0f,
     val style: NoteStyle = NoteStyle(),
     val createdAt: Long = System.currentTimeMillis(),
+    /** Locked notes can be selected but not moved, resized or rotated by touch. */
+    val locked: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -114,6 +122,7 @@ data class TextNote(
         put("rotation", rotation.toDouble())
         put("style", style.toJson())
         put("createdAt", createdAt)
+        put("locked", locked)
     }
 
     companion object {
@@ -126,6 +135,7 @@ data class TextNote(
             rotation = o.optDouble("rotation", 0.0).toFloat(),
             style = NoteStyle.fromJson(o.optJSONObject("style")),
             createdAt = o.optLong("createdAt", System.currentTimeMillis()),
+            locked = o.optBoolean("locked", false),
         )
 
         fun listToJson(notes: List<TextNote>) = JSONArray().apply { notes.forEach { put(it.toJson()) } }

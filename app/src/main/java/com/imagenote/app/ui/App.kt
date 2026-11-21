@@ -27,7 +27,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Notes
+import androidx.compose.material.icons.automirrored.outlined.Notes
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,6 +55,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
+import com.imagenote.app.ui.theme.BrandTitle
+import com.imagenote.app.ui.theme.Graphite
+import com.imagenote.app.ui.theme.NeonOrange
+import com.imagenote.app.ui.theme.OrangeGradient
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -103,6 +115,7 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
     var askedGallery by rememberSaveable { mutableStateOf(false) }
     var sheetTab by remember { mutableStateOf<PanelTab?>(null) }
     var editing by remember { mutableStateOf<TextNote?>(null) }
+    var typing by remember { mutableStateOf<Pair<Float?, Float?>?>(null) }
 
     val galleryPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         hasGallery = it.values.any { granted -> granted }
@@ -195,7 +208,12 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
                     )
                 }
                 val editor: @Composable (Modifier) -> Unit = { m ->
-                    Editor(state, voice, vm, onEditNote = { editing = it }, modifier = m)
+                    Editor(
+                        state, voice, vm,
+                        onEditNote = { editing = it },
+                        onTypeNote = { x, y -> typing = x to y },
+                        modifier = m,
+                    )
                 }
 
                 when {
@@ -208,10 +226,11 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
                             verticalArrangement = Arrangement.SpaceEvenly,
                         ) {
                             reel(if (wide) 96.dp else 72.dp)
-                            ControlBar(
-                                state, voice, vm::undo, { sheetTab = PanelTab.STYLE }, onMic, onSave, onShare,
-                                micSize = 96.dp,
-                            )
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                BrandTitleText(Modifier.weight(1f))
+                                TopActions(onStyle = { sheetTab = PanelTab.STYLE }, onNotes = { sheetTab = PanelTab.NOTES }, onSettings = { sheetTab = PanelTab.SETTINGS })
+                            }
+                            ControlBar(state, voice, vm::undo, vm::redo, onMic, onSave, onShare, micSize = 96.dp)
                         }
                     }
 
@@ -223,7 +242,7 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
                         Column(leftMod) {
                             editor(Modifier.weight(1f).padding(8.dp))
                             reel(104.dp)
-                            ControlBar(state, voice, vm::undo, null, onMic, onSave, onShare, Modifier.padding(bottom = 8.dp))
+                            ControlBar(state, voice, vm::undo, vm::redo, onMic, onSave, onShare, Modifier.padding(bottom = 8.dp))
                         }
                         if (vLeft != null && vWidth != null) Spacer(Modifier.width(vWidth))
                         val sideMod = if (vLeft != null && vLeft > 300.dp && fullWidth - vLeft > 280.dp)
@@ -235,23 +254,28 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
                     // ---------- Cover screen / folded ----------
                     else -> Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                         Row(
-                            Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
+                            Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("ImageNote", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { sheetTab = PanelTab.NOTES }) { Icon(Icons.Outlined.Notes, "Notes") }
-                            IconButton(onClick = { sheetTab = PanelTab.SETTINGS }) { Icon(Icons.Outlined.Settings, "Settings") }
+                            BrandTitleText(Modifier.weight(1f))
+                            TopActions(onStyle = { sheetTab = PanelTab.STYLE }, onNotes = { sheetTab = PanelTab.NOTES }, onSettings = { sheetTab = PanelTab.SETTINGS })
                         }
                         editor(Modifier.weight(1f))
                         reel(76.dp)
-                        ControlBar(
-                            state, voice, vm::undo, { sheetTab = PanelTab.STYLE }, onMic, onSave, onShare,
-                            Modifier.padding(bottom = 6.dp),
-                        )
+                        ControlBar(state, voice, vm::undo, vm::redo, onMic, onSave, onShare, Modifier.padding(bottom = 6.dp))
                     }
                 }
             }
-            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(bottom = 120.dp))
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(bottom = 120.dp)) { data ->
+                androidx.compose.material3.Snackbar(
+                    snackbarData = data,
+                    containerColor = Color(0xFF1E1E24),
+                    contentColor = Color.White,
+                    actionColor = NeonOrange,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.border(1.dp, Color(0x66FF7A1A), RoundedCornerShape(16.dp)),
+                )
+            }
         }
     }
 
@@ -260,10 +284,20 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
         ModalBottomSheet(
             onDismissRequest = { sheetTab = null; vm.styleEditFinished() },
             sheetState = sheetState,
-            scrimColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.15f),
+            containerColor = Graphite,
+            scrimColor = Color.Black.copy(alpha = 0.15f),
         ) {
             TabbedPanels(state, vm, initial = tab, onEdit = { editing = it }, modifier = Modifier.fillMaxHeight(0.62f))
         }
+    }
+
+    typing?.let { (x, y) ->
+        EditNoteDialog(
+            note = remember { TextNote(text = "") },
+            title = "New note",
+            onDismiss = { typing = null },
+            onSave = { vm.addTypedNote(it, x, y); typing = null },
+        )
     }
 
     editing?.let { note ->
@@ -278,13 +312,17 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
 @Composable
 private fun SidePanel(state: UiState, vm: MainViewModel, onEdit: (TextNote) -> Unit, modifier: Modifier) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
-        modifier = modifier,
+        color = Graphite,
+        shape = RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp),
+        modifier = modifier.border(
+            1.dp,
+            Brush.verticalGradient(listOf(Color(0x66FF7A1A), Color(0x11FF7A1A))),
+            RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp),
+        ),
     ) {
         Column {
             Row(Modifier.padding(start = 16.dp, top = 12.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("ImageNote", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                BrandTitleText(Modifier.weight(1f))
                 state.lastSaved?.let { SavedDragChip(it) }
             }
             TabbedPanels(state, vm, initial = PanelTab.STYLE, onEdit = onEdit, modifier = Modifier.weight(1f))
@@ -326,11 +364,24 @@ private fun TabbedPanels(
 ) {
     var tab by rememberSaveable { mutableStateOf(initial) }
     Column(modifier) {
-        TabRow(selectedTabIndex = tab.ordinal, containerColor = androidx.compose.ui.graphics.Color.Transparent) {
+        TabRow(
+            selectedTabIndex = tab.ordinal,
+            containerColor = Color.Transparent,
+            contentColor = NeonOrange,
+            indicator = { pos ->
+                androidx.compose.material3.TabRowDefaults.PrimaryIndicator(
+                    Modifier.tabIndicatorOffset(pos[tab.ordinal]),
+                    width = 36.dp, color = NeonOrange,
+                )
+            },
+            divider = {},
+        ) {
             PanelTab.entries.forEach { t ->
                 Tab(
                     selected = tab == t,
                     onClick = { tab = t },
+                    selectedContentColor = NeonOrange,
+                    unselectedContentColor = Color(0xFF9A9AA6),
                     text = { Text(if (t == PanelTab.NOTES && state.notes.isNotEmpty()) "Notes (${state.notes.size})" else t.label) },
                 )
             }
@@ -350,15 +401,37 @@ private fun PermissionScreen(onAllow: () -> Unit, onBrowse: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("Voice notes on your photos", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+        Text("ImageNote", style = BrandTitle.copy(fontSize = 44.sp))
+        Text("Voice notes on your photos", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         Text(
             "ImageNote shows your recent photos in a reel so you can pick one, speak, and have your words written on it.",
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(vertical = 16.dp),
         )
-        Button(onClick = onAllow) { Text("Allow access to photos") }
+        Box(
+            Modifier
+                .shadow(16.dp, RoundedCornerShape(50), spotColor = NeonOrange)
+                .background(OrangeGradient, RoundedCornerShape(50))
+                .clip(RoundedCornerShape(50))
+                .clickable(onClick = onAllow)
+                .padding(horizontal = 28.dp, vertical = 14.dp)
+        ) { Text("Allow access to photos", color = Color.Black, style = MaterialTheme.typography.labelLarge) }
         OutlinedButton(onClick = onBrowse, modifier = Modifier.padding(top = 8.dp)) { Text("Pick a single photo instead") }
+    }
+}
+
+@Composable
+private fun BrandTitleText(modifier: Modifier = Modifier) {
+    Text("ImageNote", style = BrandTitle, modifier = modifier)
+}
+
+@Composable
+private fun TopActions(onStyle: () -> Unit, onNotes: () -> Unit, onSettings: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        IconButton(onClick = onStyle) { Icon(Icons.Outlined.Palette, "Style", tint = NeonOrange) }
+        IconButton(onClick = onNotes) { Icon(Icons.AutoMirrored.Outlined.Notes, "Notes", tint = Color.White) }
+        IconButton(onClick = onSettings) { Icon(Icons.Outlined.Settings, "Settings", tint = Color.White) }
     }
 }
 

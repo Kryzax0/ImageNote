@@ -13,11 +13,20 @@ handwriting with a black outline, slightly italic, on a transparent background.
 - **Voice to text on the image.** The note finishes after a pause you choose (1–6 s, default 2 s).
   Live text appears on the photo as you speak. It uses on-device recognition when available, so it
   works offline. Tap the mic again to finish early.
-- **Move notes by touch.** Tap a note to select it, drag to move it, pinch to resize and twist to
-  rotate. Double-tap a note to edit its text. Undo is available.
+- **Edit notes right on the photo.** Tap a note to select it, then:
+  - drag to move it, with orange guide lines that snap to the centre;
+  - pinch to resize and twist to rotate (snaps to 0°/45°/90°);
+  - drag the orange corner handle to resize and rotate with one finger;
+  - tap the red ✕ corner to delete it.
+- **Floating toolbar** on the selected note: Edit, Add speech (dictate more words onto the note),
+  Smaller, Bigger, Center, Straighten, Duplicate, Bring to front, Send to back, Lock and Delete.
+- Double-tap or long-press a note to edit its text. Long-press empty space, or tap **Type**, to type
+  a note instead of speaking it. **Hold: original** shows the photo without notes.
+- Undo and redo.
 - **Style options.** 12 handwriting fonts plus sans, serif and mono, with size, italic slant,
-  outline thickness, text and outline colours, bold, ALL CAPS, alignment, letter and line spacing,
-  wrap width, and a background of none, soft shadow, dim box or solid box. Save favourite styles
+  outline thickness, opacity, text and outline colours (swatches or a custom colour picker), bold,
+  ALL CAPS, alignment, letter and line spacing, wrap width, and an effect: none, soft shadow,
+  neon glow, highlighter, dim box or solid box. Save favourite styles
   as presets. Changes apply to the selected note, or to new notes when none is selected.
 - **Notes are kept per photo**, so you can come back and keep working. The Notes tab lists the
   text with copy, edit and delete.
@@ -37,7 +46,7 @@ handwriting with a black outline, slightly italic, on a transparent background.
 - Split screen and pop-up view: drag a photo from Samsung Gallery into ImageNote to open it. After
   saving, long-press the "Saved" chip and drag the result into another app (Notes, Messages…).
 - "Share" or "Open with" from Samsung Gallery sends a photo straight into ImageNote.
-- The app follows your One UI wallpaper colours.
+- Dark theme with fluorescent orange accents.
 
 ## Install
 

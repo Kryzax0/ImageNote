@@ -88,14 +88,15 @@ object NoteRenderer {
     ) {
         val m = measure(context, note, imageW)
         val style = note.style
-        val a = (alpha * 255).toInt().coerceIn(0, 255)
+        val a = (alpha * style.opacity.coerceIn(0.05f, 1f) * 255).toInt().coerceIn(0, 255)
+        val shadowRadius = m.fontPx * 0.18f
 
         canvas.save()
         canvas.translate(note.x * imageW, note.y * imageH)
         canvas.rotate(note.rotation)
         canvas.translate(-m.width / 2f, -m.height / 2f)
 
-        // Background
+        // Background box
         when (style.background) {
             BackgroundStyle.TRANSLUCENT, BackgroundStyle.SOLID -> {
                 val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -110,6 +111,35 @@ object NoteRenderer {
 
         canvas.translate(m.pad, m.pad)
         val paint = m.paint
+        val layout = m.layout
+
+        // Highlighter: a marker band behind each line.
+        if (style.background == BackgroundStyle.HIGHLIGHT) {
+            val hl = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = style.backgroundColor
+                this.alpha = (a * 0.85f).toInt()
+            }
+            val ext = m.fontPx * 0.18f
+            for (i in 0 until layout.lineCount) {
+                val top = layout.getLineTop(i) + (layout.getLineBottom(i) - layout.getLineTop(i)) * 0.18f
+                val bottom = layout.getLineBottom(i) - (layout.getLineBottom(i) - layout.getLineTop(i)) * 0.08f
+                val r = RectF(layout.getLineLeft(i) - ext, top, layout.getLineRight(i) + ext, bottom)
+                canvas.drawRoundRect(r, m.fontPx * 0.12f, m.fontPx * 0.12f, hl)
+            }
+        }
+
+        // Neon glow: blurred copies of the text in the glow colour.
+        if (style.background == BackgroundStyle.GLOW) {
+            paint.style = Paint.Style.FILL_AND_STROKE
+            paint.strokeWidth = m.fontPx * 0.06f
+            paint.color = style.backgroundColor
+            paint.alpha = a
+            for (radius in floatArrayOf(m.fontPx * 0.45f, m.fontPx * 0.2f)) {
+                paint.setShadowLayer(radius, 0f, 0f, withAlpha(style.backgroundColor, a))
+                layout.draw(canvas)
+            }
+            paint.clearShadowLayer()
+        }
 
         // Outline pass
         if (m.strokePx > 0f) {
@@ -121,9 +151,9 @@ object NoteRenderer {
             paint.color = style.outlineColor
             paint.alpha = a * android.graphics.Color.alpha(style.outlineColor) / 255
             if (style.background == BackgroundStyle.SHADOW) {
-                paint.setShadowLayer(m.fontPx * 0.18f, m.fontPx * 0.04f, m.fontPx * 0.06f, 0xAA000000.toInt())
+                paint.setShadowLayer(shadowRadius, m.fontPx * 0.04f, m.fontPx * 0.06f, withAlpha(0xFF000000.toInt(), a * 2 / 3))
             }
-            m.layout.draw(canvas)
+            layout.draw(canvas)
             paint.clearShadowLayer()
         }
 
@@ -132,9 +162,9 @@ object NoteRenderer {
         paint.color = style.textColor
         paint.alpha = a * android.graphics.Color.alpha(style.textColor) / 255
         if (style.background == BackgroundStyle.SHADOW && m.strokePx <= 0f) {
-            paint.setShadowLayer(m.fontPx * 0.18f, m.fontPx * 0.04f, m.fontPx * 0.06f, 0xAA000000.toInt())
+            paint.setShadowLayer(shadowRadius, m.fontPx * 0.04f, m.fontPx * 0.06f, withAlpha(0xFF000000.toInt(), a * 2 / 3))
         }
-        m.layout.draw(canvas)
+        layout.draw(canvas)
         paint.clearShadowLayer()
 
         canvas.translate(-m.pad, -m.pad)
@@ -143,17 +173,43 @@ object NoteRenderer {
             val density = context.resources.displayMetrics.density
             val dash = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 this.style = Paint.Style.STROKE
-                strokeWidth = 2f * density
-                pathEffect = DashPathEffect(floatArrayOf(8f * density, 6f * density), 0f)
+                pathEffect = DashPathEffect(floatArrayOf(9f * density, 6f * density), 0f)
             }
             val rect = RectF(0f, 0f, m.width, m.height)
-            val r = 10f * density
-            dash.color = 0xCC000000.toInt(); dash.strokeWidth = 4f * density
+            val r = 12f * density
+            dash.color = 0x99000000.toInt(); dash.strokeWidth = 4.5f * density
             canvas.drawRoundRect(rect, r, r, dash)
-            dash.color = 0xFFFFFFFF.toInt(); dash.strokeWidth = 2f * density
+            dash.color = if (note.locked) 0xFFB0B0B8.toInt() else SELECTION_ORANGE
+            dash.strokeWidth = 2.2f * density
             canvas.drawRoundRect(rect, r, r, dash)
         }
         canvas.restore()
+    }
+
+    const val SELECTION_ORANGE = 0xFFFF7A1A.toInt()
+
+    private fun withAlpha(color: Int, alpha: Int) = (color and 0x00FFFFFF) or (alpha.coerceIn(0, 255) shl 24)
+
+    /** Size and placement of a note in image-area pixels, for handles and toolbars. */
+    class Frame(val cx: Float, val cy: Float, val width: Float, val height: Float, val rotation: Float) {
+        /** Corner of the (rotated) frame; sx/sy are -1 or 1. */
+        fun corner(sx: Int, sy: Int): Pair<Float, Float> {
+            val rad = Math.toRadians(rotation.toDouble())
+            val dx = sx * width / 2f
+            val dy = sy * height / 2f
+            return (cx + dx * cos(rad) - dy * sin(rad)).toFloat() to (cy + dx * sin(rad) + dy * cos(rad)).toFloat()
+        }
+
+        /** Axis-aligned bounds of the rotated frame. */
+        fun bounds(): RectF {
+            val pts = listOf(corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1))
+            return RectF(pts.minOf { it.first }, pts.minOf { it.second }, pts.maxOf { it.first }, pts.maxOf { it.second })
+        }
+    }
+
+    fun frame(context: Context, note: TextNote, imageW: Float, imageH: Float): Frame {
+        val m = measure(context, note, imageW)
+        return Frame(note.x * imageW, note.y * imageH, m.width, m.height, note.rotation)
     }
 
     /** Returns the top-most note under the point (px, py) in image-area coordinates. */

@@ -61,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -101,8 +102,9 @@ fun StylePanel(state: UiState, vm: MainViewModel, modifier: Modifier = Modifier)
     val editingNote = state.selectedNote != null
     Column(modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text(
-            if (editingNote) "Editing the selected note" else "Style for new notes",
+            if (editingNote) "● Editing the selected note" else "Style for new notes",
             style = MaterialTheme.typography.titleMedium,
+            color = if (editingNote) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
         )
         Text(
             if (editingNote) "Tap empty space on the image to go back to the default style."
@@ -140,6 +142,7 @@ fun StylePanel(state: UiState, vm: MainViewModel, modifier: Modifier = Modifier)
         LabeledSlider("Size", style.size, 15f..250f, "${style.size.roundToInt()}", vm) { v -> copy(size = v) }
         LabeledSlider("Italic slant", style.slant, 0f..0.6f, "${(style.slant * 100).roundToInt()}%", vm) { v -> copy(slant = v) }
         LabeledSlider("Outline", style.outlineWidth, 0f..0.3f, "${(style.outlineWidth * 100).roundToInt()}%", vm) { v -> copy(outlineWidth = v) }
+        LabeledSlider("Opacity", style.opacity, 0.1f..1f, "${(style.opacity * 100).roundToInt()}%", vm) { v -> copy(opacity = v) }
 
         Section("Text colour")
         ColorRow(style.textColor) { c -> vm.updateStyle { it.copy(textColor = c) }; vm.styleEditFinished() }
@@ -183,19 +186,30 @@ fun StylePanel(state: UiState, vm: MainViewModel, modifier: Modifier = Modifier)
             }
         }
 
-        Section("Background")
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            BackgroundStyle.entries.forEachIndexed { i, b ->
-                SegmentedButton(
+        Section("Effect")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BackgroundStyle.entries.forEach { b ->
+                FilterChip(
                     selected = style.background == b,
-                    onClick = { vm.updateStyle { it.copy(background = b) }; vm.styleEditFinished() },
-                    shape = SegmentedButtonDefaults.itemShape(i, BackgroundStyle.entries.size),
-                    icon = {},
-                ) { Text(b.label, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp) }
+                    onClick = {
+                        vm.updateStyle {
+                            val needsColour = (b == BackgroundStyle.GLOW || b == BackgroundStyle.HIGHLIGHT) &&
+                                it.backgroundColor == 0xFF000000.toInt()
+                            it.copy(background = b, backgroundColor = if (needsColour) 0xFFFF7A1A.toInt() else it.backgroundColor)
+                        }
+                        vm.styleEditFinished()
+                    },
+                    label = { Text(b.label) },
+                )
             }
         }
-        if (style.background == BackgroundStyle.TRANSLUCENT || style.background == BackgroundStyle.SOLID) {
-            Spacer(Modifier.height(8.dp))
+        if (style.background != BackgroundStyle.NONE && style.background != BackgroundStyle.SHADOW) {
+            Text(
+                if (style.background == BackgroundStyle.GLOW) "Glow colour" else "Box colour",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp, bottom = 6.dp),
+            )
             ColorRow(style.backgroundColor) { c -> vm.updateStyle { it.copy(backgroundColor = c) }; vm.styleEditFinished() }
         }
 
@@ -288,7 +302,19 @@ private fun LabeledSlider(
 
 @Composable
 private fun ColorRow(selected: Int, onPick: (Int) -> Unit) {
+    var custom by remember { mutableStateOf(false) }
+    if (custom) ColorPickerDialog(selected, onDismiss = { custom = false }) { onPick(it); custom = false }
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item {
+            Box(
+                Modifier
+                    .size(34.dp)
+                    .background(Brush.sweepGradient(listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)), CircleShape)
+                    .border(if (selected !in Swatches) 3.dp else 1.dp, if (selected !in Swatches) MaterialTheme.colorScheme.primary else Color(0x55FFFFFF), CircleShape)
+                    .clickable { custom = true },
+                contentAlignment = Alignment.Center,
+            ) { Text("+", color = Color.White, fontSize = 18.sp) }
+        }
         items(Swatches) { c ->
             val isSel = c == selected
             Box(
@@ -307,6 +333,40 @@ private fun ColorRow(selected: Int, onPick: (Int) -> Unit) {
 }
 
 private fun Modifier.clip16() = this.clip(RoundedCornerShape(16.dp))
+
+@Composable
+private fun ColorPickerDialog(initial: Int, onDismiss: () -> Unit, onPick: (Int) -> Unit) {
+    val hsv = remember { FloatArray(3).also { android.graphics.Color.colorToHSV(initial, it) } }
+    var hue by remember { mutableStateOf(hsv[0]) }
+    var sat by remember { mutableStateOf(hsv[1]) }
+    var value by remember { mutableStateOf(hsv[2]) }
+    val color = android.graphics.Color.HSVToColor(floatArrayOf(hue, sat, value))
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Custom colour") },
+        text = {
+            Column {
+                Box(
+                    Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(14.dp)).background(Color(color))
+                        .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp))
+                )
+                Text("Hue", modifier = Modifier.padding(top = 12.dp))
+                Box(
+                    Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(
+                        Brush.horizontalGradient(listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red))
+                    )
+                )
+                Slider(hue, { hue = it }, valueRange = 0f..360f)
+                Text("Saturation")
+                Slider(sat, { sat = it }, valueRange = 0f..1f)
+                Text("Brightness")
+                Slider(value, { value = it }, valueRange = 0f..1f)
+            }
+        },
+        confirmButton = { TextButton(onClick = { onPick(color) }) { Text("Use colour") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
 
 // ---------------------------------------------------------------- Notes
 
@@ -455,13 +515,13 @@ private fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChan
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditNoteDialog(note: TextNote, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+fun EditNoteDialog(note: TextNote, onDismiss: () -> Unit, title: String = "Edit note", onSave: (String) -> Unit) {
     var text by remember(note.id) { mutableStateOf(note.text) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit note") },
+        title = { Text(title) },
         text = {
             OutlinedTextField(
                 value = text,
