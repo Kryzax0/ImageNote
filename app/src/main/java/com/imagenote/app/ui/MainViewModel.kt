@@ -25,6 +25,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+/** A pending system request to delete an original photo (auto-approved with Media management access). */
+data class DeleteRequest(val original: Uri, val saved: Uri, val intent: android.app.PendingIntent)
+
 data class UiState(
     val images: List<GalleryImage> = emptyList(),
     val galleryLoaded: Boolean = false,
@@ -44,6 +47,9 @@ data class UiState(
     val saving: Boolean = false,
     val lastSaved: Uri? = null,
     val message: String? = null,
+    val deleteRequest: DeleteRequest? = null,
+    /** Show the one-time "allow Media management" explanation. */
+    val askMediaAccess: Boolean = false,
 ) {
     val selectedNote: TextNote? get() = notes.firstOrNull { it.id == selectedNoteId }
     /** The style that the style panel edits: the selected note's, or the default for new notes. */
@@ -428,9 +434,76 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 savedSnapshot = s.notes
                 _ui.update { it.copy(saving = false, lastSaved = saved, message = "Saved to Pictures/ImageNote") }
                 then?.invoke(saved)
+                if (s.settings.deleteOriginal) deleteOriginal(uri, saved)
             }.onFailure { e ->
                 _ui.update { it.copy(saving = false, message = "Couldn't save: ${e.message}") }
             }
+        }
+    }
+
+    // ---------- Delete original after saving ----------
+
+    private var pendingDelete: Pair<Uri, Uri>? = null
+
+    private fun isGalleryUri(uri: Uri) =
+        uri.authority == android.provider.MediaStore.AUTHORITY && uri.pathSegments.firstOrNull() != "picker"
+
+    private fun deleteOriginal(original: Uri, saved: Uri) {
+        val app = getApplication<Application>()
+        if (!isGalleryUri(original)) {
+            toast("Saved. The original wasn't from the gallery, so it was kept.")
+            return
+        }
+        viewModelScope.launch {
+            // Our own files (e.g. transparent-mode captures) can be deleted directly.
+            val deleted = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { app.contentResolver.delete(original, null, null) > 0 }.getOrDefault(false)
+            }
+            if (deleted) { onOriginalDeleted(original, saved); return@launch }
+            pendingDelete = original to saved
+            val prefs = app.getSharedPreferences("imagenote", android.content.Context.MODE_PRIVATE)
+            if (android.os.Build.VERSION.SDK_INT >= 31 &&
+                !android.provider.MediaStore.canManageMedia(app) &&
+                !prefs.getBoolean("askedMediaAccess", false)
+            ) {
+                prefs.edit().putBoolean("askedMediaAccess", true).apply()
+                _ui.update { it.copy(askMediaAccess = true) }
+            } else continueDelete()
+        }
+    }
+
+    /** Ask the system to delete; with Media management access this completes without a prompt. */
+    fun continueDelete() {
+        _ui.update { it.copy(askMediaAccess = false) }
+        val (original, saved) = pendingDelete ?: return
+        val app = getApplication<Application>()
+        val pi = runCatching {
+            android.provider.MediaStore.createDeleteRequest(app.contentResolver, listOf(original))
+        }.getOrNull()
+        if (pi == null) { pendingDelete = null; toast("Saved. Couldn't delete the original."); return }
+        _ui.update { it.copy(deleteRequest = DeleteRequest(original, saved, pi)) }
+    }
+
+    fun onDeleteResult(ok: Boolean) {
+        val req = _ui.value.deleteRequest
+        _ui.update { it.copy(deleteRequest = null) }
+        pendingDelete = null
+        if (req == null) return
+        if (ok) onOriginalDeleted(req.original, req.saved) else toast("Saved. Original kept.")
+    }
+
+    private fun onOriginalDeleted(original: Uri, saved: Uri) {
+        viewModelScope.launch {
+            noteStore.save(original, emptyList())
+            extraImages.removeAll { it.uri == original }
+            _ui.update { st -> st.copy(images = st.images.filterNot { it.uri == original }) }
+            refreshGallery(selectFirst = false).join()
+            if (_ui.value.current == original) {
+                select(saved)
+                _ui.update { it.copy(lastSaved = saved) }
+                savedSnapshot = emptyList()
+            }
+            toast("Saved · original deleted")
         }
     }
 
