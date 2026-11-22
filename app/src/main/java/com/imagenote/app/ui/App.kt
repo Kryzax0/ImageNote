@@ -174,6 +174,7 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
         }
     }
     val onSave = { vm.saveOrReuse(null) }
+    val transparent = rememberTransparentMode(vm)
 
     var rootOffset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     val density = LocalDensity.current
@@ -212,6 +213,7 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
                         state, voice, vm,
                         onEditNote = { editing = it },
                         onTypeNote = { x, y -> typing = x to y },
+                        onTransparent = transparent.toggle,
                         modifier = m,
                     )
                 }
@@ -299,6 +301,8 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
             onSave = { vm.addTypedNote(it, x, y); typing = null },
         )
     }
+
+    if (transparent.showIntro) TransparentIntroDialog(transparent)
 
     editing?.let { note ->
         EditNoteDialog(

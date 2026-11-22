@@ -79,8 +79,19 @@ class GalleryRepository(private val context: Context) {
     }
 }
 
-/** Persists the notes for every image so they can be re-opened and edited later. */
-class NoteStore(context: Context) {
+/**
+ * Persists the notes for every image so they can be re-opened and edited later.
+ * One shared instance per process so the app and the transparent-mode overlay stay in sync.
+ */
+class NoteStore private constructor(context: Context) {
+    companion object {
+        @Volatile private var instance: NoteStore? = null
+        fun get(context: Context): NoteStore =
+            instance ?: synchronized(this) { instance ?: NoteStore(context.applicationContext).also { instance = it } }
+    }
+
+    /** Bumped on every save; lets the UI refresh badges when the overlay adds notes. */
+    val changes = kotlinx.coroutines.flow.MutableStateFlow(0L)
     private val file = File(context.filesDir, "notes.json")
     private val data = LinkedHashMap<String, List<TextNote>>()
 
@@ -107,8 +118,11 @@ class NoteStore(context: Context) {
             JSONObject().apply { data.forEach { (k, v) -> put(k, TextNote.listToJson(v)) } }.toString()
         }
         val tmp = File(file.parentFile, "notes.json.tmp")
-        tmp.writeText(snapshot)
-        tmp.renameTo(file)
+        synchronized(file) {
+            tmp.writeText(snapshot)
+            tmp.renameTo(file)
+        }
+        changes.value = changes.value + 1
     }
 }
 

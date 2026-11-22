@@ -13,12 +13,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import androidx.window.layout.WindowLayoutInfo
+import com.imagenote.app.overlay.OverlayService
 import com.imagenote.app.ui.FoldPosture
 import com.imagenote.app.ui.ImageNoteApp
 import com.imagenote.app.ui.MainViewModel
 import com.imagenote.app.ui.theme.ImageNoteTheme
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val ACTION_OPEN_CAPTURE = "com.imagenote.app.OPEN_CAPTURE"
+    }
+
     private val vm: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,6 +48,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        OverlayService.appVisible.value = true
+    }
+
+    override fun onStop() {
+        OverlayService.appVisible.value = false
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleIntent(intent)
@@ -57,6 +72,7 @@ class MainActivity : ComponentActivity() {
                 @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM)
             }
             Intent.ACTION_VIEW, Intent.ACTION_EDIT -> intent.data
+            ACTION_OPEN_CAPTURE -> { intent.data?.let(vm::openCapture); return }
             else -> null
         }
         uri?.let(vm::openExternal)

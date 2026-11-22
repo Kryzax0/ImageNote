@@ -87,6 +87,33 @@ object Exporter {
         uri
     }
 
+    /**
+     * Saves a raw screen capture (without notes) to Pictures/ImageNote/Screens so notes stay
+     * editable in the app. Returns the new MediaStore uri.
+     */
+    suspend fun saveScreenshot(context: Context, bitmap: Bitmap, description: String): Uri = withContext(Dispatchers.IO) {
+        val resolver = context.contentResolver
+        val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "Screen_$stamp.png")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/ImageNote/Screens")
+            put(MediaStore.Images.Media.DESCRIPTION, description.take(1000))
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val uri = resolver.insert(collection, values) ?: error("Couldn't create the image file")
+        try {
+            resolver.openOutputStream(uri)?.use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                ?: error("Couldn't write the image file")
+            resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+        } catch (t: Throwable) {
+            resolver.delete(uri, null, null)
+            throw t
+        }
+        uri
+    }
+
     /** Keep useful metadata from the original and embed the spoken notes as text. */
     private fun writeExif(context: Context, source: Uri, target: File, transcript: String) {
         val out = ExifInterface(target.absolutePath)

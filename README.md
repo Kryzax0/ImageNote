@@ -33,6 +33,23 @@ handwriting with a black outline, slightly italic, on a transparent background.
 - **Save and share.** A full-resolution copy goes to `Pictures/ImageNote`. The original is never
   changed. The spoken text is also stored in the photo's description (EXIF), so it is searchable.
 
+### Transparent mode
+
+Tap **Transparent** (top-right of the editor) and ImageNote shrinks to a small floating bar.
+Use your phone normally (other apps, websites, maps…) and tap the orange mic on any screen:
+
+1. The bar hides itself and ImageNote captures what's on screen.
+2. You speak; your words appear live above the bar.
+3. After the pause, the note is written onto that screenshot. A preview card appears with
+   **Open** (edit it in ImageNote) and **Undo**.
+
+- Drag the bar up or down to choose where on the screen the note goes.
+- Captures are saved to `Pictures/ImageNote/Screens` and appear first in the reel with the note
+  attached, so they stay editable. Use Save in the app for a finished copy.
+- The bar hides while ImageNote itself is open. Exit with ✕ on the bar or "Stop" in the notification.
+- The first time, Android asks for: microphone, "Display over other apps", notifications (optional)
+  and screen sharing. Choose "Share entire screen".
+
 ### Fold 7 specific
 
 | Posture | Layout |

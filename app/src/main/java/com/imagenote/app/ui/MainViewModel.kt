@@ -52,7 +52,7 @@ data class UiState(
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val gallery = GalleryRepository(app)
-    private val noteStore = NoteStore(app)
+    private val noteStore = NoteStore.get(app)
     private val settingsStore = SettingsStore(app)
     val voice = VoiceCapture(app, viewModelScope)
     val voiceState: StateFlow<VoiceState> get() = voice.state
@@ -74,6 +74,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var persistJob: Job? = null
 
     init {
+        // Notes added from transparent mode show up as badges in the reel.
+        viewModelScope.launch {
+            noteStore.changes.collect { _ui.update { it.copy(annotated = noteStore.annotatedUris()) } }
+        }
         // Clear the "dictating into this note" marker whenever listening ends (incl. errors / silence).
         viewModelScope.launch {
             voice.state.collect { st ->
@@ -122,6 +126,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _ui.update { it.copy(images = listOf(img) + it.images) }
         }
         select(uri)
+    }
+
+    /** Open a screenshot captured in transparent mode. */
+    fun openCapture(uri: Uri) {
+        viewModelScope.launch {
+            refreshGallery(selectFirst = false).join()
+            if (_ui.value.images.none { it.uri == uri }) openExternal(uri)
+            else { _ui.update { it.copy(current = null) }; select(uri) }
+        }
     }
 
     fun select(uri: Uri) {

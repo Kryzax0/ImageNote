@@ -55,11 +55,13 @@ import androidx.compose.material.icons.filled.TextDecrease
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.TextIncrease
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -128,6 +130,7 @@ fun Editor(
     vm: MainViewModel,
     onEditNote: (TextNote) -> Unit,
     onTypeNote: (x: Float?, y: Float?) -> Unit,
+    onTransparent: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -166,8 +169,27 @@ fun Editor(
         contentAlignment = Alignment.Center,
     ) {
         val uri = state.current
+        // Top-right: jump into transparent mode (floating bar over other apps).
+        val transparentOn by com.imagenote.app.overlay.OverlayService.running.collectAsState()
+        val transparentChip: @Composable () -> Unit = {
+            Row(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .shadow(10.dp, RoundedCornerShape(50), spotColor = NeonOrange)
+                    .clip(RoundedCornerShape(50))
+                    .background(OrangeGradient)
+                    .clickable(onClick = onTransparent)
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Layers, null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                Text(if (transparentOn) " Transparent: ON" else " Transparent", color = Color.Black, fontSize = 12.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            }
+        }
         if (uri == null) {
             EmptyEditor()
+            transparentChip()
             return@BoxWithConstraints
         }
         val pad = 10.dp
@@ -273,6 +295,8 @@ fun Editor(
                 }
             }
         }
+
+        if (voice !is VoiceState.Listening) transparentChip()
 
         // Live transcript banner while listening
         AnimatedVisibility(
