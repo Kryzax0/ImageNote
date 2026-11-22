@@ -57,7 +57,12 @@ fun rememberTransparentMode(vm: MainViewModel): TransparentModeController {
     }
     val askProjection = {
         val mpm = context.getSystemService(MediaProjectionManager::class.java)
-        projection.launch(mpm.createScreenCaptureIntent())
+        // Always capture the entire screen: on Android 14+ this removes the "share one app"
+        // choice from the system prompt.
+        val intent = if (Build.VERSION.SDK_INT >= 34) {
+            mpm.createScreenCaptureIntent(android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay())
+        } else mpm.createScreenCaptureIntent()
+        projection.launch(intent)
     }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { askProjection() }
     val askNotificationsThenProjection = {
@@ -121,7 +126,7 @@ fun TransparentIntroDialog(c: TransparentModeController) {
                 Text(
                     "• Drag the bar up or down to choose where the note goes.\n" +
                         "• Leave the app again and the bar comes back, ready for the next capture.\n" +
-                        "• Android will ask to share your screen. Choose \"Share entire screen\".\n" +
+                        "• Android will ask once to allow screen capture. Tap Start.\n" +
                         "• Tap ✕ on the bar to exit.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 10.dp),

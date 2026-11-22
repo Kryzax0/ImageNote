@@ -53,7 +53,7 @@ Use your phone normally (other apps, websites, maps…) and tap the orange mic o
   the app.
 - The bar hides while ImageNote itself is open.
 - The first time, Android asks for: microphone, "Display over other apps", notifications (optional)
-  and screen sharing. Choose "Share entire screen".
+  and screen capture. It always captures the entire screen; there is no single-app option.
 
 ### Fold 7 specific
 
