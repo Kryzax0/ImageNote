@@ -152,7 +152,8 @@ data class AppSettings(
     val language: String = "",
     val autoCapitalize: Boolean = true,
     val haptics: Boolean = true,
-    val jpegQuality: Int = 95,
+    /** Saved images are kept under this size in MB (0 = no limit). 10 MB fits Discord. */
+    val maxFileMb: Int = 10,
     /** Put each new note below the previous one instead of on top of it. */
     val stackNotes: Boolean = true,
 ) {
@@ -162,7 +163,7 @@ data class AppSettings(
         put("language", language)
         put("autoCapitalize", autoCapitalize)
         put("haptics", haptics)
-        put("jpegQuality", jpegQuality)
+        put("maxFileMb", maxFileMb)
         put("stackNotes", stackNotes)
     }
 
@@ -176,7 +177,7 @@ data class AppSettings(
                 language = o.optString("language", d.language),
                 autoCapitalize = o.optBoolean("autoCapitalize", d.autoCapitalize),
                 haptics = o.optBoolean("haptics", d.haptics),
-                jpegQuality = o.optInt("jpegQuality", d.jpegQuality),
+                maxFileMb = o.optInt("maxFileMb", d.maxFileMb),
                 stackNotes = o.optBoolean("stackNotes", d.stackNotes),
             )
         }

@@ -19,61 +19,57 @@ import kotlin.math.sqrt
 
 object Exporter {
 
-    /** Fold 7 photos can be 200 MP; cap the export so it fits comfortably in memory. */
+    /** Fold 7 photos can be 200 MP; work at up to 24 MP (≈5650×4240), plenty for any screen or print. */
     private const val MAX_PIXELS = 24_000_000
 
+    class Saved(val uri: Uri, val bytes: Int, val width: Int, val height: Int, val png: Boolean)
+
+    class Encoded(val bytes: ByteArray, val png: Boolean, val width: Int, val height: Int)
+
     /**
-     * Renders [notes] onto a full-resolution copy of [source] and saves it to Pictures/ImageNote.
-     * The original image is never modified. Returns the new MediaStore uri.
+     * Renders [notes] onto a full-resolution copy of [source] and saves it to Pictures/ImageNote,
+     * in the best quality that fits under [maxMegabytes] (0 = no limit). The original is untouched.
      */
     suspend fun export(
         context: Context,
         source: Uri,
         notes: List<TextNote>,
-        jpegQuality: Int,
-    ): Uri = withContext(Dispatchers.IO) {
+        maxMegabytes: Int,
+    ): Saved = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
         val mime = resolver.getType(source).orEmpty()
-        val asPng = mime.contains("png")
+        // Screenshots and PNGs keep lossless quality when they fit; text stays perfectly crisp.
+        val preferPng = mime.contains("png") || source.path.orEmpty().endsWith(".png", ignoreCase = true)
 
-        val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, source)) { decoder, info, _ ->
+        val base = ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, source)) { decoder, info, _ ->
             decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            decoder.isMutableRequired = true
             val px = info.size.width.toLong() * info.size.height
             if (px > MAX_PIXELS) {
                 val f = sqrt(MAX_PIXELS.toDouble() / px)
                 decoder.setTargetSize((info.size.width * f).toInt(), (info.size.height * f).toInt())
             }
-        }.let { if (it.config != Bitmap.Config.ARGB_8888) it.copy(Bitmap.Config.ARGB_8888, true) else it }
-
-        val canvas = Canvas(bitmap)
-        val w = bitmap.width.toFloat()
-        val h = bitmap.height.toFloat()
-        notes.forEach { NoteRenderer.draw(canvas, context, it, w, h) }
+        }
+        val limit = if (maxMegabytes <= 0) Long.MAX_VALUE else (maxMegabytes * 1_000_000L * 0.95).toLong()
+        val enc = encodeBest(context, base, notes, limit, preferPng)
+        base.recycle()
 
         val transcript = notes.joinToString("\n") { it.text }
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val ext = if (asPng) "png" else "jpg"
+        val ext = if (enc.png) "png" else "jpg"
         val tmp = File(context.cacheDir, "export_$stamp.$ext")
-        tmp.outputStream().use { out ->
-            bitmap.compress(
-                if (asPng) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,
-                jpegQuality.coerceIn(50, 100), out
-            )
-        }
-        bitmap.recycle()
-
-        if (!asPng) runCatching { writeExif(context, source, tmp, transcript) }
+        tmp.writeBytes(enc.bytes)
+        if (!enc.png) runCatching { writeExif(context, source, tmp, transcript) }
 
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "ImageNote_$stamp.$ext")
-            put(MediaStore.Images.Media.MIME_TYPE, if (asPng) "image/png" else "image/jpeg")
+            put(MediaStore.Images.Media.MIME_TYPE, if (enc.png) "image/png" else "image/jpeg")
             put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/ImageNote")
             put(MediaStore.Images.Media.DESCRIPTION, transcript.take(1000))
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
         val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val uri = resolver.insert(collection, values) ?: error("Couldn't create the image file")
+        val size = tmp.length().toInt()
         try {
             resolver.openOutputStream(uri)?.use { out -> tmp.inputStream().use { it.copyTo(out) } }
                 ?: error("Couldn't write the image file")
@@ -84,7 +80,67 @@ object Exporter {
         } finally {
             tmp.delete()
         }
-        normalize(uri)
+        Saved(normalize(uri), size, enc.width, enc.height, enc.png)
+    }
+
+    /**
+     * Highest quality that fits in [limitBytes]:
+     * 1. lossless PNG if preferred and small enough;
+     * 2. JPEG at quality 97, else the highest quality from 96 down to 82 that fits;
+     * 3. only if even quality 82 is too big, shrink the image a little and try again.
+     * Notes are drawn after any resizing so the handwriting stays sharp.
+     */
+    fun encodeBest(context: Context, base: Bitmap, notes: List<TextNote>, limitBytes: Long, preferPng: Boolean): Encoded {
+        var scale = 1.0
+        repeat(8) {
+            val img = render(context, base, notes, scale)
+            try {
+                if (preferPng) {
+                    val png = compress(img, Bitmap.CompressFormat.PNG, 100)
+                    if (png.size <= limitBytes) return Encoded(png, true, img.width, img.height)
+                }
+                val top = compress(img, Bitmap.CompressFormat.JPEG, if (limitBytes == Long.MAX_VALUE) 98 else 97)
+                if (top.size <= limitBytes) return Encoded(top, false, img.width, img.height)
+                val floor = compress(img, Bitmap.CompressFormat.JPEG, 82)
+                if (floor.size > limitBytes) {
+                    // Too detailed even at q82: shrink so q~90 should fit, then search again.
+                    scale *= sqrt(limitBytes.toDouble() / floor.size) * 0.9
+                    return@repeat
+                }
+                var best = floor
+                var lo = 83
+                var hi = 96
+                while (lo <= hi) {
+                    val mid = (lo + hi) / 2
+                    val b = compress(img, Bitmap.CompressFormat.JPEG, mid)
+                    if (b.size <= limitBytes) { best = b; lo = mid + 1 } else hi = mid - 1
+                }
+                return Encoded(best, false, img.width, img.height)
+            } finally {
+                img.recycle()
+            }
+        }
+        // Practically unreachable; fall back to a small, safe JPEG.
+        val img = render(context, base, notes, scale)
+        return Encoded(compress(img, Bitmap.CompressFormat.JPEG, 80), false, img.width, img.height).also { img.recycle() }
+    }
+
+    private fun render(context: Context, base: Bitmap, notes: List<TextNote>, scale: Double): Bitmap {
+        val w = (base.width * scale).toInt().coerceAtLeast(1)
+        val h = (base.height * scale).toInt().coerceAtLeast(1)
+        val img = if (scale >= 0.999) base.copy(Bitmap.Config.ARGB_8888, true)
+        else Bitmap.createScaledBitmap(base, w, h, true).let {
+            if (it.isMutable && it.config == Bitmap.Config.ARGB_8888) it else it.copy(Bitmap.Config.ARGB_8888, true)
+        }
+        val canvas = Canvas(img)
+        notes.forEach { NoteRenderer.draw(canvas, context, it, img.width.toFloat(), img.height.toFloat()) }
+        return img
+    }
+
+    private fun compress(img: Bitmap, format: Bitmap.CompressFormat, quality: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream(4 * 1024 * 1024)
+        img.compress(format, quality, out)
+        return out.toByteArray()
     }
 
     /** Folder for transparent-mode captures. They stay private to the app until you Save. */

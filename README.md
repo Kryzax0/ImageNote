@@ -32,8 +32,10 @@ handwriting with a black outline, slightly italic, on a transparent background.
   as presets. Changes apply to the selected note, or to new notes when none is selected.
 - **Notes are kept per photo**, so you can come back and keep working. The Notes tab lists the
   text with copy, edit and delete.
-- **Save and share.** A full-resolution copy goes to `Pictures/ImageNote`. The original is never
-  changed. The spoken text is also stored in the photo's description (EXIF), so it is searchable.
+- **Save and share.** A copy goes to `Pictures/ImageNote` at the best quality that fits the size
+  limit (default 10 MB, which fits Discord; 8 MB / 25 MB / no limit in Settings). It keeps full
+  resolution up to 24 MP, uses lossless PNG for screenshots when they fit, and otherwise the highest
+  JPEG quality that fits. It only shrinks the image slightly if needed. The original is never changed. The spoken text is also stored in the photo's description (EXIF), so it is searchable.
 
 ### Transparent mode
 

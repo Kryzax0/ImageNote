@@ -476,14 +476,21 @@ fun SettingsPanel(state: UiState, vm: MainViewModel, modifier: Modifier = Modifi
         }
 
         Text("Saving", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp))
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("JPEG quality")
-            Text("${s.jpegQuality}", color = MaterialTheme.colorScheme.primary)
+        Text("Maximum file size", modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(8 to "8 MB", 10 to "10 MB · Discord", 25 to "25 MB", 0 to "No limit").forEach { (mb, label) ->
+                FilterChip(
+                    selected = s.maxFileMb == mb,
+                    onClick = { vm.updateSettings { it.copy(maxFileMb = mb) } },
+                    label = { Text(label) },
+                )
+            }
         }
-        Slider(
-            value = s.jpegQuality.toFloat(),
-            onValueChange = { v -> vm.updateSettings { it.copy(jpegQuality = v.roundToInt()) } },
-            valueRange = 70f..100f,
+        Text(
+            "Images are saved at the best quality that fits: full resolution (up to 24 MP), lossless PNG for screenshots when possible, otherwise top-quality JPEG. They're only shrunk slightly if they still don't fit.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp, bottom = 8.dp),
         )
         Text(
             "Originals are never changed. Saved copies go to Pictures/ImageNote and include your spoken text in the photo's description.",

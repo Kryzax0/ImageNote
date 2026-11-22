@@ -435,10 +435,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(saving = true) }
         viewModelScope.launch {
             runCatching {
-                Exporter.export(getApplication(), uri, s.notes, s.settings.jpegQuality)
-            }.onSuccess { saved ->
+                Exporter.export(getApplication(), uri, s.notes, s.settings.maxFileMb)
+            }.onSuccess { result ->
+                val saved = result.uri
+                val mb = "%.1f".format(result.bytes / 1_000_000f)
                 savedSnapshot = s.notes
-                _ui.update { it.copy(saving = false, lastSaved = saved, message = "Saved to Pictures/ImageNote") }
+                _ui.update { it.copy(saving = false, lastSaved = saved, message = "Saved · ${result.width}×${result.height} · $mb MB${if (result.png) " (lossless)" else ""}") }
                 then?.invoke(saved)
                 // A transparent-mode capture becomes the saved image: no second copy is left behind.
                 if (isCapture(uri)) replaceCaptureWith(uri, saved)
