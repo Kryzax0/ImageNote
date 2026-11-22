@@ -1,27 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ImageNote app icon: bold slanted "IN" in fluorescent orange with a glow, on a dark background. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- photo frame -->
-    <path android:fillColor="#FFFFFFFF"
-        android:pathData="M30,32h48a4,4 0,0 1,4 4v36a4,4 0,0 1,-4 4h-48a4,4 0,0 1,-4 -4v-36a4,4 0,0 1,4 -4z" />
-    <path android:fillColor="#FF1C1C22"
-        android:pathData="M31,37h46v34h-46z" />
-    <!-- mountains -->
-    <path android:fillColor="#FF3A3A44"
-        android:pathData="M31,71l14,-16l9,10l7,-7l16,13z" />
-    <!-- speech/handwriting squiggle -->
-    <path android:strokeColor="#FF000000" android:strokeWidth="5"
-        android:strokeLineCap="round" android:fillColor="#00000000"
-        android:pathData="M38,48c4,-6 8,6 12,0s8,6 12,0s6,4 8,0" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2.5"
-        android:strokeLineCap="round" android:fillColor="#00000000"
-        android:pathData="M38,48c4,-6 8,6 12,0s8,6 12,0s6,4 8,0" />
-    <!-- mic badge -->
-    <path android:fillColor="#FFFF7A1A"
-        android:pathData="M78,70m-12,0a12,12 0,1 1,24 0a12,12 0,1 1,-24 0" />
-    <path android:fillColor="#FFFFFFFF"
-        android:pathData="M75,62a3,3 0,0 1,6 0v8a3,3 0,0 1,-6 0z" />
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:fillColor="#00000000"
-        android:strokeLineCap="round"
-        android:pathData="M72,69a6,6 0,0 0,12 0M78,75v3" />
+    <!-- outer glow -->
+    <path android:pathData="M36.25,35.94 L46.57,35.94 L40.79,72.06 L30.47,72.06 Z M50.87,35.94 L60.33,35.94 L65.46,52.28 L68.07,35.94 L77.53,35.94 L71.75,72.06 L62.29,72.06 L57.16,55.72 L54.55,72.06 L45.09,72.06 Z" android:fillColor="#00000000"
+        android:strokeColor="#14FF7A1A" android:strokeWidth="8" android:strokeLineJoin="round"/>
+    <path android:pathData="M36.25,35.94 L46.57,35.94 L40.79,72.06 L30.47,72.06 Z M50.87,35.94 L60.33,35.94 L65.46,52.28 L68.07,35.94 L77.53,35.94 L71.75,72.06 L62.29,72.06 L57.16,55.72 L54.55,72.06 L45.09,72.06 Z" android:fillColor="#00000000"
+        android:strokeColor="#22FF7A1A" android:strokeWidth="5" android:strokeLineJoin="round"/>
+    <path android:pathData="M36.25,35.94 L46.57,35.94 L40.79,72.06 L30.47,72.06 Z M50.87,35.94 L60.33,35.94 L65.46,52.28 L68.07,35.94 L77.53,35.94 L71.75,72.06 L62.29,72.06 L57.16,55.72 L54.55,72.06 L45.09,72.06 Z" android:fillColor="#00000000"
+        android:strokeColor="#40FF8A2A" android:strokeWidth="2.4" android:strokeLineJoin="round"/>
+    <!-- drop shadow for depth -->
+    <path android:pathData="M37.63,37.83 L47.95,37.83 L42.17,73.95 L31.85,73.95 Z M52.25,37.83 L61.71,37.83 L66.83,54.17 L69.45,37.83 L78.91,37.83 L73.13,73.95 L63.67,73.95 L58.54,57.61 L55.93,73.95 L46.47,73.95 Z" android:fillColor="#CC000000"/>
+    <!-- letters -->
+    <path android:pathData="M36.25,35.94 L46.57,35.94 L40.79,72.06 L30.47,72.06 Z M50.87,35.94 L60.33,35.94 L65.46,52.28 L68.07,35.94 L77.53,35.94 L71.75,72.06 L62.29,72.06 L57.16,55.72 L54.55,72.06 L45.09,72.06 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="54" android:startY="34" android:endX="54" android:endY="74">
+                <item android:offset="0" android:color="#FFFFC46B"/>
+                <item android:offset="0.45" android:color="#FFFF7A1A"/>
+                <item android:offset="1" android:color="#FFFF4500"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- crisp dark outline, like the note text -->
+    <path android:pathData="M36.25,35.94 L46.57,35.94 L40.79,72.06 L30.47,72.06 Z M50.87,35.94 L60.33,35.94 L65.46,52.28 L68.07,35.94 L77.53,35.94 L71.75,72.06 L62.29,72.06 L57.16,55.72 L54.55,72.06 L45.09,72.06 Z" android:fillColor="#00000000"
+        android:strokeColor="#FF1A0A00" android:strokeWidth="0.9" android:strokeLineJoin="round"/>
+    <!-- glossy highlight along the top -->
+    <path android:pathData="M36.25,35.94 L46.57,35.94 L46.09,38.95 L35.77,38.95 Z M50.87,35.94 L60.33,35.94 L61.31,38.95 L50.39,38.95 Z M68.07,35.94 L77.53,35.94 L77.05,38.95 L67.59,38.95 Z"
+        android:fillColor="#66FFFFFF"/>
+    <!-- handwriting swoosh -->
+    <path android:pathData="M37.66,78.51 C47.12,75.67 59.16,75.16 71.2,76.02 C60.88,76.53 48.84,77.56 38.69,79.97 Z" android:fillColor="#00000000"
+        android:strokeColor="#33FF7A1A" android:strokeWidth="2.5" android:strokeLineJoin="round"/>
+    <path android:pathData="M37.66,78.51 C47.12,75.67 59.16,75.16 71.2,76.02 C60.88,76.53 48.84,77.56 38.69,79.97 Z" android:fillColor="#FFFFA040"/>
 </vector>
