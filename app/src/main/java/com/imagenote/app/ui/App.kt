@@ -304,42 +304,6 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
 
     if (transparent.showIntro) TransparentIntroDialog(transparent)
 
-    // Delete the original after saving (no prompt once Media management access is allowed).
-    val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
-        vm.onDeleteResult(r.resultCode == android.app.Activity.RESULT_OK)
-    }
-    LaunchedEffect(state.deleteRequest) {
-        state.deleteRequest?.let {
-            runCatching {
-                deleteLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(it.intent.intentSender).build())
-            }.onFailure { vm.onDeleteResult(false) }
-        }
-    }
-    val mediaAccess = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { vm.continueDelete() }
-    if (state.askMediaAccess) {
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = { vm.continueDelete() },
-            containerColor = Graphite,
-            title = { Text("Delete originals automatically") },
-            text = {
-                Text(
-                    "To delete the original photo after saving without asking every time, Android needs a one-time permission: " +
-                        "turn on \"Allow media management\" for ImageNote on the next screen, then come back."
-                )
-            },
-            confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    runCatching {
-                        mediaAccess.launch(
-                            Intent(android.provider.Settings.ACTION_REQUEST_MANAGE_MEDIA, Uri.parse("package:${context.packageName}"))
-                        )
-                    }.onFailure { vm.continueDelete() }
-                }) { Text("Allow", color = NeonOrange) }
-            },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = vm::continueDelete) { Text("Not now") } },
-        )
-    }
-
     editing?.let { note ->
         EditNoteDialog(
             note = note,

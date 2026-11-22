@@ -32,10 +32,8 @@ handwriting with a black outline, slightly italic, on a transparent background.
   as presets. Changes apply to the selected note, or to new notes when none is selected.
 - **Notes are kept per photo**, so you can come back and keep working. The Notes tab lists the
   text with copy, edit and delete.
-- **Save and share.** A full-resolution copy goes to `Pictures/ImageNote`, and the original photo
-  is then deleted automatically (turn this off in Settings → "Delete original after saving").
-  Deleting without a prompt needs Android's one-time "Media management" access, which the app
-  asks for the first time. The spoken text is also stored in the photo's description (EXIF), so it is searchable.
+- **Save and share.** A full-resolution copy goes to `Pictures/ImageNote`. The original is never
+  changed. The spoken text is also stored in the photo's description (EXIF), so it is searchable.
 
 ### Transparent mode
 

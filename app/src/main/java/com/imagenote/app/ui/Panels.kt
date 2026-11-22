@@ -476,9 +476,6 @@ fun SettingsPanel(state: UiState, vm: MainViewModel, modifier: Modifier = Modifi
         }
 
         Text("Saving", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp))
-        SwitchRow("Delete original after saving", "The annotated copy replaces the original photo", s.deleteOriginal) {
-            vm.updateSettings { st -> st.copy(deleteOriginal = it) }
-        }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("JPEG quality")
             Text("${s.jpegQuality}", color = MaterialTheme.colorScheme.primary)
@@ -489,7 +486,7 @@ fun SettingsPanel(state: UiState, vm: MainViewModel, modifier: Modifier = Modifi
             valueRange = 70f..100f,
         )
         Text(
-            "Saved copies go to Pictures/ImageNote and include your spoken text in the photo's description. With \"Delete original\" off, originals are never changed.",
+            "Originals are never changed. Saved copies go to Pictures/ImageNote and include your spoken text in the photo's description.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -155,8 +155,6 @@ data class AppSettings(
     val jpegQuality: Int = 95,
     /** Put each new note below the previous one instead of on top of it. */
     val stackNotes: Boolean = true,
-    /** Delete the original photo once the annotated copy has been saved. */
-    val deleteOriginal: Boolean = true,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("silenceMillis", silenceMillis)
@@ -166,7 +164,6 @@ data class AppSettings(
         put("haptics", haptics)
         put("jpegQuality", jpegQuality)
         put("stackNotes", stackNotes)
-        put("deleteOriginal", deleteOriginal)
     }
 
     companion object {
@@ -181,7 +178,6 @@ data class AppSettings(
                 haptics = o.optBoolean("haptics", d.haptics),
                 jpegQuality = o.optInt("jpegQuality", d.jpegQuality),
                 stackNotes = o.optBoolean("stackNotes", d.stackNotes),
-                deleteOriginal = o.optBoolean("deleteOriginal", d.deleteOriginal),
             )
         }
     }
