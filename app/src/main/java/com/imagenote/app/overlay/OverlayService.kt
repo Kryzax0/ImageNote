@@ -303,7 +303,7 @@ class OverlayService : Service() {
                     return@launch
                 }
                 showMessage("Opening ImageNote…")
-                val uri = runCatching { Exporter.saveScreenshot(this@OverlayService, shot, "") }
+                val uri = runCatching { Exporter.saveScreenshot(this@OverlayService, shot) }
                     .getOrElse { com.imagenote.app.speech.AudioPump.stop(); showMessage("Couldn't save: ${it.message}"); return@launch }
                 shot.recycle()
                 openInApp(uri, noteY)
@@ -323,7 +323,8 @@ class OverlayService : Service() {
         val i = Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         if (uri != null) {
-            i.setAction(MainActivity.ACTION_OPEN_CAPTURE).setData(uri)
+            // Private file: pass the path, not a file:// uri (Android blocks those in intents).
+            i.setAction(MainActivity.ACTION_OPEN_CAPTURE).putExtra(MainActivity.EXTRA_CAPTURE_PATH, uri.path)
                 .putExtra(MainActivity.EXTRA_NOTE_Y, noteY)
                 .putExtra(MainActivity.EXTRA_LISTEN, true)
         }

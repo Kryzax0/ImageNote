@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_OPEN_CAPTURE = "com.imagenote.app.OPEN_CAPTURE"
         const val EXTRA_NOTE_Y = "noteY"
         const val EXTRA_LISTEN = "listen"
+        const val EXTRA_CAPTURE_PATH = "capturePath"
     }
 
     private val vm: MainViewModel by viewModels()
@@ -75,7 +76,7 @@ class MainActivity : ComponentActivity() {
             }
             Intent.ACTION_VIEW, Intent.ACTION_EDIT -> intent.data
             ACTION_OPEN_CAPTURE -> {
-                intent.data?.let {
+                (intent.getStringExtra(EXTRA_CAPTURE_PATH)?.let { Uri.fromFile(java.io.File(it)) } ?: intent.data)?.let {
                     vm.openCapture(
                         it,
                         noteY = intent.getFloatExtra(EXTRA_NOTE_Y, -1f).takeIf { y -> y >= 0f },

@@ -109,15 +109,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Unsaved transparent-mode captures, newest first. They live privately in the app. */
+    private fun captures(): List<GalleryImage> =
+        Exporter.capturesDir(getApplication()).listFiles().orEmpty()
+            .filter { it.isFile }
+            .sortedByDescending { it.lastModified() }
+            .map { GalleryImage(Uri.fromFile(it), -1, it.lastModified() / 1000, 0, 0, "image/png", it.name) }
+
+    fun isCapture(uri: Uri) = Exporter.isCapture(getApplication(), uri)
+
     fun refreshGallery(selectFirst: Boolean) = viewModelScope.launch {
         val imgs = gallery.recentImages()
-        val merged = (extraImages.filter { e -> imgs.none { it.uri == e.uri } } + imgs)
+        val caps = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { captures() }
+        val merged = caps + extraImages.filter { e -> imgs.none { it.uri == e.uri } && caps.none { it.uri == e.uri } } + imgs
         _ui.update { it.copy(images = merged, galleryLoaded = true) }
         if (selectFirst && _ui.value.current == null) merged.firstOrNull()?.let { select(it.uri) }
     }
 
     /** Images from the photo picker, a share intent or a drag & drop. */
-    fun openExternal(uri: Uri) {
+    fun openExternal(raw: Uri) {
+        val uri = Exporter.normalize(raw)
         runCatching {
             getApplication<Application>().contentResolver
                 .takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -137,7 +148,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * Open a screenshot captured in transparent mode and, if [listen], start listening right away
      * so the spoken note lands on it.
      */
-    fun openCapture(uri: Uri, noteY: Float? = null, listen: Boolean = false) {
+    fun openCapture(raw: Uri, noteY: Float? = null, listen: Boolean = false) {
+        val uri = Exporter.normalize(raw)
         viewModelScope.launch {
             refreshGallery(selectFirst = false).join()
             if (_ui.value.images.none { it.uri == uri }) openExternal(uri)
@@ -428,10 +440,44 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 savedSnapshot = s.notes
                 _ui.update { it.copy(saving = false, lastSaved = saved, message = "Saved to Pictures/ImageNote") }
                 then?.invoke(saved)
+                // A transparent-mode capture becomes the saved image: no second copy is left behind.
+                if (isCapture(uri)) replaceCaptureWith(uri, saved)
             }.onFailure { e ->
                 _ui.update { it.copy(saving = false, message = "Couldn't save: ${e.message}") }
             }
         }
+    }
+
+    private fun replaceCaptureWith(capture: Uri, saved: Uri) {
+        viewModelScope.launch {
+            removeCaptureFile(capture)
+            refreshGallery(selectFirst = false).join()
+            if (_ui.value.current == capture) {
+                select(saved)
+                _ui.update { it.copy(lastSaved = saved) }
+                savedSnapshot = emptyList()
+            }
+        }
+    }
+
+    /** Throw away an unsaved capture. */
+    fun discardCapture(capture: Uri) {
+        viewModelScope.launch {
+            removeCaptureFile(capture)
+            val wasCurrent = _ui.value.current == capture
+            refreshGallery(selectFirst = false).join()
+            if (wasCurrent) {
+                _ui.update { it.copy(current = null, notes = emptyList(), selectedNoteId = null) }
+                _ui.value.images.firstOrNull()?.let { select(it.uri) }
+            }
+            toast("Capture discarded")
+        }
+    }
+
+    private suspend fun removeCaptureFile(capture: Uri) {
+        noteStore.save(capture, emptyList())
+        extraImages.removeAll { it.uri == capture }
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { capture.path?.let { java.io.File(it).delete() } }
     }
 
     fun toast(msg: String) = _ui.update { it.copy(message = msg) }

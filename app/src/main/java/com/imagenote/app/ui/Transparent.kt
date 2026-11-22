@@ -125,6 +125,7 @@ fun TransparentIntroDialog(c: TransparentModeController) {
                 )
                 Text(
                     "• Drag the bar up or down to choose where the note goes.\n" +
+                        "• Captures only go into your gallery when you tap Save, so there is just one image.\n" +
                         "• Leave the app again and the bar comes back, ready for the next capture.\n" +
                         "• Android will ask once to allow screen capture. Tap Start.\n" +
                         "• Tap ✕ on the bar to exit.",

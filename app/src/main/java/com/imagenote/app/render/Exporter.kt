@@ -84,35 +84,36 @@ object Exporter {
         } finally {
             tmp.delete()
         }
-        uri
+        normalize(uri)
     }
 
+    /** Folder for transparent-mode captures. They stay private to the app until you Save. */
+    fun capturesDir(context: Context) = File(context.filesDir, "captures").apply { mkdirs() }
+
+    fun isCapture(context: Context, uri: Uri): Boolean =
+        uri.scheme == "file" && uri.path?.startsWith(capturesDir(context).absolutePath) == true
+
     /**
-     * Saves a raw screen capture (without notes) to Pictures/ImageNote/Screens so notes stay
-     * editable in the app. Returns the new MediaStore uri.
+     * Stores a raw screen capture privately (not in the gallery). Saving it later produces the only
+     * gallery image, with the notes on it, and the private capture is removed.
      */
-    suspend fun saveScreenshot(context: Context, bitmap: Bitmap, description: String): Uri = withContext(Dispatchers.IO) {
-        val resolver = context.contentResolver
+    suspend fun saveScreenshot(context: Context, bitmap: Bitmap): Uri = withContext(Dispatchers.IO) {
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "Screen_$stamp.png")
-            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/ImageNote/Screens")
-            put(MediaStore.Images.Media.DESCRIPTION, description.take(1000))
-            put(MediaStore.Images.Media.IS_PENDING, 1)
-        }
-        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        val uri = resolver.insert(collection, values) ?: error("Couldn't create the image file")
-        try {
-            resolver.openOutputStream(uri)?.use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                ?: error("Couldn't write the image file")
-            resolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
-        } catch (t: Throwable) {
-            resolver.delete(uri, null, null)
-            throw t
-        }
-        uri
+        val f = File(capturesDir(context), "Screen_$stamp.png")
+        f.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        Uri.fromFile(f)
     }
+
+    /** MediaStore returns "external_primary" uris on insert; the gallery list uses "external". */
+    fun normalize(uri: Uri): Uri =
+        if (uri.authority == MediaStore.AUTHORITY && uri.pathSegments.size >= 4 && uri.pathSegments[1] == "images") {
+            runCatching {
+                android.content.ContentUris.withAppendedId(
+                    MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL),
+                    android.content.ContentUris.parseId(uri),
+                )
+            }.getOrDefault(uri)
+        } else uri
 
     /** Keep useful metadata from the original and embed the spoken notes as text. */
     private fun writeExif(context: Context, source: Uri, target: File, transcript: String) {

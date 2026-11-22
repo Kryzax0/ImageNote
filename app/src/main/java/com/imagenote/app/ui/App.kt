@@ -116,6 +116,7 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
     var sheetTab by remember { mutableStateOf<PanelTab?>(null) }
     var editing by remember { mutableStateOf<TextNote?>(null) }
     var typing by remember { mutableStateOf<Pair<Float?, Float?>?>(null) }
+    var discarding by remember { mutableStateOf<Uri?>(null) }
 
     val galleryPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         hasGallery = it.values.any { granted -> granted }
@@ -206,6 +207,8 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
                         itemSize = size,
                         onPick = { vm.select(it.uri) },
                         onBrowse = browse,
+                        isCapture = { vm.isCapture(it.uri) },
+                        onLongPress = { if (vm.isCapture(it.uri)) discarding = it.uri },
                     )
                 }
                 val editor: @Composable (Modifier) -> Unit = { m ->
@@ -303,6 +306,21 @@ fun ImageNoteApp(vm: MainViewModel, posture: FoldPosture) {
     }
 
     if (transparent.showIntro) TransparentIntroDialog(transparent)
+
+    discarding?.let { uri ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { discarding = null },
+            containerColor = Graphite,
+            title = { Text("Discard this capture?") },
+            text = { Text("It hasn't been saved to your gallery. Its notes will be lost.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { vm.discardCapture(uri); discarding = null }) {
+                    Text("Discard", color = NeonOrange)
+                }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { discarding = null }) { Text("Keep") } },
+        )
+    }
 
     editing?.let { note ->
         EditNoteDialog(

@@ -24,9 +24,7 @@ class CaptureHandoffTest {
         val uri = Uri.fromFile(f)
         val vm = MainViewModel(app)
         vm.openCapture(uri, noteY = 0.62f, listen = false)
-        ShadowLooper.idleMainLooper()
-        Thread.sleep(300)
-        ShadowLooper.idleMainLooper()
+        waitFor { vm.ui.value.current == uri }
         assertEquals(uri, vm.ui.value.current)
         val add = MainViewModel::class.java.getDeclaredMethod("addNote", String::class.java).apply { isAccessible = true }
         add.invoke(vm, "Buy this one")
@@ -34,5 +32,34 @@ class CaptureHandoffTest {
         // Later notes stack normally below it.
         add.invoke(vm, "Second")
         assert(vm.ui.value.notes[1].y > 0.62f)
+    }
+
+    private fun waitFor(cond: () -> Boolean) {
+        val end = System.currentTimeMillis() + 5000
+        while (!cond() && System.currentTimeMillis() < end) { ShadowLooper.idleMainLooper(); Thread.sleep(20) }
+    }
+
+    @Test
+    fun captureIsPrivateListedOnceAndDiscardable() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val bmp = Bitmap.createBitmap(30, 60, Bitmap.Config.ARGB_8888)
+        val uri = kotlinx.coroutines.runBlocking { com.imagenote.app.render.Exporter.saveScreenshot(app, bmp) }
+        assertEquals("file", uri.scheme)
+        val vm = MainViewModel(app)
+        vm.openCapture(uri, noteY = 0.5f)
+        waitFor { vm.ui.value.current == uri }
+        assertEquals(uri, vm.ui.value.current)
+        assertEquals(1, vm.ui.value.images.count { it.uri == uri })
+        assert(vm.isCapture(uri))
+        vm.discardCapture(uri)
+        waitFor { vm.ui.value.images.none { it.uri == uri } }
+        assertEquals(0, vm.ui.value.images.count { it.uri == uri })
+        assert(!File(uri.path!!).exists())
+    }
+
+    @Test
+    fun mediaStoreUrisAreNormalised() {
+        val a = Uri.parse("content://media/external_primary/images/media/42")
+        assertEquals("content://media/external/images/media/42", com.imagenote.app.render.Exporter.normalize(a).toString())
     }
 }

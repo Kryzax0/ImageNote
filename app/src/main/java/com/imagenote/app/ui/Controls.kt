@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,6 +64,7 @@ import com.imagenote.app.ui.theme.OrangeGradient
 import com.imagenote.app.ui.theme.Slate
 
 /** Side-scrolling reel of the most recent gallery images. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ImageReel(
     images: List<GalleryImage>,
@@ -72,6 +74,8 @@ fun ImageReel(
     onPick: (GalleryImage) -> Unit,
     onBrowse: () -> Unit,
     modifier: Modifier = Modifier,
+    isCapture: (GalleryImage) -> Boolean = { false },
+    onLongPress: (GalleryImage) -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     // When a new photo arrives at the front, scroll back to show it.
@@ -116,7 +120,7 @@ fun ImageReel(
                         else Modifier
                     )
                     .clip(shape)
-                    .clickable { onPick(img) }
+                    .combinedClickable(onClick = { onPick(img) }, onLongClick = { onLongPress(img) })
                     .semantics { contentDescription = img.displayName ?: "Image" },
             ) {
                 AsyncImage(
@@ -125,6 +129,19 @@ fun ImageReel(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.matchParentSize().alpha(if (selected) 1f else 0.82f),
                 )
+                if (isCapture(img)) {
+                    Text(
+                        "NOT SAVED",
+                        color = Color.Black,
+                        fontSize = 8.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(4.dp)
+                            .background(OrangeGradient, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 4.dp, vertical = 1.dp),
+                    )
+                }
                 if (img.uri.toString() in annotated) {
                     Box(
                         Modifier

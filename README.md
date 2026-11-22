@@ -47,7 +47,9 @@ Use your phone normally (other apps, websites, maps…) and tap the orange mic o
    restyle, add more, save or share.
 
 - Drag the bar up or down before tapping to choose the height where the first note goes.
-- Captures are saved to `Pictures/ImageNote/Screens` and appear first in the reel.
+- Captures stay private inside ImageNote (marked "NOT SAVED" in the reel) until you tap Save or
+  Share. That produces the only gallery image, with your notes on it, so there are no duplicates.
+  Long-press an unsaved capture in the reel to discard it.
 - Transparent mode stays available. Leave the app and the bar is back, without asking to share
   the screen again. Exit with ✕ on the bar, "Stop" in the notification, or "Transparent: ON" in
   the app.
