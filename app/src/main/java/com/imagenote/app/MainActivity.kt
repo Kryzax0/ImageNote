@@ -22,6 +22,8 @@ import com.imagenote.app.ui.theme.ImageNoteTheme
 class MainActivity : ComponentActivity() {
     companion object {
         const val ACTION_OPEN_CAPTURE = "com.imagenote.app.OPEN_CAPTURE"
+        const val EXTRA_NOTE_Y = "noteY"
+        const val EXTRA_LISTEN = "listen"
     }
 
     private val vm: MainViewModel by viewModels()
@@ -72,7 +74,18 @@ class MainActivity : ComponentActivity() {
                 @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM)
             }
             Intent.ACTION_VIEW, Intent.ACTION_EDIT -> intent.data
-            ACTION_OPEN_CAPTURE -> { intent.data?.let(vm::openCapture); return }
+            ACTION_OPEN_CAPTURE -> {
+                intent.data?.let {
+                    vm.openCapture(
+                        it,
+                        noteY = intent.getFloatExtra(EXTRA_NOTE_Y, -1f).takeIf { y -> y >= 0f },
+                        listen = intent.getBooleanExtra(EXTRA_LISTEN, false),
+                    )
+                }
+                // Don't re-handle on recreation.
+                intent.action = null
+                return
+            }
             else -> null
         }
         uri?.let(vm::openExternal)

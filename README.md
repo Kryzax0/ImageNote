@@ -39,14 +39,17 @@ Tap **Transparent** (top-right of the editor) and ImageNote shrinks to a small f
 Use your phone normally (other apps, websites, maps…) and tap the orange mic on any screen:
 
 1. The bar hides itself and ImageNote captures what's on screen.
-2. You speak; your words appear live above the bar.
-3. After the pause, the note is written onto that screenshot. A preview card appears with
-   **Open** (edit it in ImageNote) and **Undo**.
+2. ImageNote switches back to normal mode with that screenshot open and is **already listening**.
+   Your words appear live on the screenshot.
+3. After the pause the note is placed, and you can edit everything as usual: drag, resize,
+   restyle, add more, save or share.
 
-- Drag the bar up or down to choose where on the screen the note goes.
-- Captures are saved to `Pictures/ImageNote/Screens` and appear first in the reel with the note
-  attached, so they stay editable. Use Save in the app for a finished copy.
-- The bar hides while ImageNote itself is open. Exit with ✕ on the bar or "Stop" in the notification.
+- Drag the bar up or down before tapping to choose the height where the first note goes.
+- Captures are saved to `Pictures/ImageNote/Screens` and appear first in the reel.
+- Transparent mode stays available. Leave the app and the bar is back, without asking to share
+  the screen again. Exit with ✕ on the bar, "Stop" in the notification, or "Transparent: ON" in
+  the app.
+- The bar hides while ImageNote itself is open.
 - The first time, Android asks for: microphone, "Display over other apps", notifications (optional)
   and screen sharing. Choose "Share entire screen".
 

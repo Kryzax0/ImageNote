@@ -11,8 +11,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
-import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -33,13 +31,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.imagenote.app.MainActivity
 import com.imagenote.app.R
-import com.imagenote.app.data.NoteStore
-import com.imagenote.app.data.SettingsStore
-import com.imagenote.app.data.TextNote
 import com.imagenote.app.render.Exporter
-import com.imagenote.app.render.NoteRenderer
-import com.imagenote.app.speech.VoiceCapture
-import com.imagenote.app.speech.VoiceState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,13 +42,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 /**
  * Transparent mode: a small floating ImageNote bar over whatever app you're using.
- * Tap the mic → the current screen is captured (with the bar hidden), you speak, and your words
- * are attached to that screenshot as an editable note in ImageNote.
+ * Tap the mic → the current screen is captured (with the bar hidden) and ImageNote comes back to
+ * the front with that screenshot open and already listening, so you speak and then edit normally.
  */
 class OverlayService : Service() {
 
@@ -89,22 +80,14 @@ class OverlayService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var wm: WindowManager
-    private lateinit var voice: VoiceCapture
     private var grabber: ScreenGrabber? = null
 
     private var root: LinearLayout? = null
     private lateinit var params: WindowManager.LayoutParams
     private lateinit var transcript: TextView
-    private lateinit var card: LinearLayout
-    private lateinit var cardImage: ImageView
-    private lateinit var cardText: TextView
     private lateinit var micView: ImageView
     private lateinit var micBg: FrameLayout
 
-    private var pendingShot: Bitmap? = null
-    private var shotY = 0.5f
-    private var lastCapture: Uri? = null
-    private var cardJob: Job? = null
     private var busy = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -112,7 +95,6 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         wm = getSystemService(WindowManager::class.java)
-        voice = VoiceCapture(this, scope)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -133,7 +115,6 @@ class OverlayService : Service() {
                 showOverlay()
                 _running.value = true
                 scope.launch { appVisible.collect { visible -> root?.visibility = if (visible) View.GONE else View.VISIBLE } }
-                scope.launch { voice.state.collect(::renderVoice) }
             }
         }
         return START_NOT_STICKY
@@ -156,13 +137,13 @@ class OverlayService : Service() {
         val n = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_note)
             .setContentTitle("ImageNote transparent mode")
-            .setContentText("Tap the floating mic on any screen to add a voice note")
+            .setContentText("Tap the floating mic on any screen to capture it and add a voice note")
             .setContentIntent(openApp)
             .setColor(0xFFFF7A1A.toInt())
             .setOngoing(true)
             .addAction(Notification.Action.Builder(null, "Stop", stop).build())
             .build()
-        val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         startForeground(NOTIFICATION_ID, n, type)
     }
 
@@ -189,54 +170,6 @@ class OverlayService : Service() {
             ellipsize = TextUtils.TruncateAt.START
             background = pill(0xEE141418.toInt(), 0x99FF7A1A.toInt(), 18f)
             setPadding(dpi(14f), dpi(10f), dpi(14f), dpi(10f))
-            visibility = View.GONE
-        }
-
-        cardImage = ImageView(this).apply {
-            adjustViewBounds = true
-            maxHeight = dpi(150f)
-            maxWidth = dpi(120f)
-            scaleType = ImageView.ScaleType.FIT_CENTER
-        }
-        cardText = TextView(this).apply {
-            setTextColor(Color.WHITE); textSize = 14f; text = "Note added"; maxWidth = dpi(170f)
-        }
-        fun cardButton(label: String, onClick: () -> Unit) = TextView(this).apply {
-            text = label
-            textSize = 13f
-            setTextColor(0xFF140800.toInt())
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR, intArrayOf(0xFFFFA040.toInt(), 0xFFFF7A1A.toInt(), 0xFFFF4E00.toInt())
-            ).apply { cornerRadius = dp(40f) }
-            setPadding(dpi(14f), dpi(6f), dpi(14f), dpi(6f))
-            setOnClickListener { onClick() }
-        }
-        val cardButtons = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            addView(cardButton("Open") { openInApp(lastCapture) })
-            addView(View(context), LinearLayout.LayoutParams(dpi(8f), 1))
-            addView(TextView(context).apply {
-                text = "Undo"; textSize = 13f; setTextColor(Color.WHITE)
-                background = pill(0x33FFFFFF, 0x55FFFFFF, 40f)
-                setPadding(dpi(14f), dpi(6f), dpi(14f), dpi(6f))
-                setOnClickListener { undoLast() }
-            })
-        }
-        val cardInfo = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dpi(12f), 0, 0, 0)
-            val wrap = { LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT) }
-            addView(cardText, wrap())
-            addView(View(context), LinearLayout.LayoutParams(1, dpi(8f)))
-            addView(cardButtons, wrap())
-        }
-        card = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            background = pill(0xF0141418.toInt(), 0xAAFF7A1A.toInt(), 20f)
-            setPadding(dpi(10f), dpi(10f), dpi(14f), dpi(10f))
-            addView(cardImage)
-            addView(cardInfo)
             visibility = View.GONE
         }
 
@@ -272,7 +205,6 @@ class OverlayService : Service() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dpi(6f), dpi(6f), dpi(6f), dpi(6f))
-            addView(card, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dpi(8f) })
             addView(transcript, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dpi(8f) })
             addView(bar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         }
@@ -338,129 +270,58 @@ class OverlayService : Service() {
         grabber?.onScreenChanged()
     }
 
-    private fun renderVoice(state: VoiceState) {
-        when (state) {
-            is VoiceState.Listening -> {
-                transcript.visibility = View.VISIBLE
-                transcript.text = state.text.ifBlank { "Listening… speak now" }
-                micView.setImageResource(R.drawable.ic_ov_stop)
-                val s = 1f + state.level * 0.18f
-                micBg.scaleX = s; micBg.scaleY = s
-            }
-            is VoiceState.Error -> {
-                transcript.visibility = View.VISIBLE
-                transcript.text = state.message
-                resetMic()
-                scope.launch { delay(3000); if (voice.state.value !is VoiceState.Listening) transcript.visibility = View.GONE }
-            }
-            VoiceState.Idle -> {
-                transcript.visibility = View.GONE
-                resetMic()
-            }
-        }
-    }
-
-    private fun resetMic() {
-        micView.setImageResource(R.drawable.ic_ov_mic)
-        micBg.scaleX = 1f; micBg.scaleY = 1f
-    }
-
     // ------------------------------------------------------------------ Actions
 
+    /**
+     * Capture the screen (with the bar hidden), save it, and switch back to ImageNote with the
+     * screenshot open and the microphone already listening, for proper editing.
+     */
     private fun onMicTapped() {
-        if (voice.isListening) { voice.stop(); return }
         if (busy) return
         val g = grabber ?: return
         busy = true
-        hideCard()
         scope.launch {
-            val r = root ?: return@launch
-            // Note goes at the height where the bar is, so drag the bar to where you want the note.
-            val screenH = resources.displayMetrics.heightPixels.toFloat()
-            shotY = ((params.y + r.height / 2f) / screenH).coerceIn(0.08f, 0.92f)
-            r.alpha = 0f
-            val shot = g.capture()
-            r.alpha = 1f
-            busy = false
-            if (shot == null) {
-                showMessage("Couldn't capture the screen")
-                return@launch
-            }
-            pendingShot = shot
-            voice.start(SettingsStore(this@OverlayService).loadSettings()) { text -> onSpoken(text) }
-            // If nothing was said, drop the capture once listening ends.
-            launch {
-                voice.state.collect { if (it !is VoiceState.Listening) { delay(100); if (pendingShot === shot) pendingShot = null; cancel() } }
+            try {
+                val r = root ?: return@launch
+                // The first note goes at the height of the bar, so drag the bar to where you want it.
+                val screenH = resources.displayMetrics.heightPixels.toFloat()
+                val noteY = ((params.y + r.height / 2f) / screenH).coerceIn(0.08f, 0.92f)
+                r.alpha = 0f
+                val shot = g.capture()
+                r.alpha = 1f
+                if (shot == null) {
+                    showMessage("Couldn't capture the screen")
+                    return@launch
+                }
+                showMessage("Opening ImageNote…")
+                val uri = runCatching { Exporter.saveScreenshot(this@OverlayService, shot, "") }
+                    .getOrElse { showMessage("Couldn't save: ${it.message}"); return@launch }
+                shot.recycle()
+                openInApp(uri, noteY)
+            } finally {
+                busy = false
             }
         }
-    }
-
-    private fun onSpoken(text: String) {
-        val shot = pendingShot ?: return
-        pendingShot = null
-        scope.launch {
-            runCatching {
-                val style = SettingsStore(this@OverlayService).loadDefaultStyle()
-                val note = TextNote(text = text, x = 0.5f, y = shotY, style = style)
-                val uri = Exporter.saveScreenshot(this@OverlayService, shot, text)
-                NoteStore.get(this@OverlayService).save(uri, listOf(note))
-                val preview = withContext(Dispatchers.Default) { previewOf(shot, note) }
-                lastCapture = uri
-                showCard(preview, text)
-            }.onFailure { showMessage("Couldn't save: ${it.message}") }
-        }
-    }
-
-    private fun previewOf(shot: Bitmap, note: TextNote): Bitmap {
-        val w = 360
-        val h = (shot.height * w.toFloat() / shot.width).toInt().coerceAtLeast(1)
-        val small = Bitmap.createScaledBitmap(shot, w, h, true).copy(Bitmap.Config.ARGB_8888, true)
-        NoteRenderer.draw(Canvas(small), this, note, w.toFloat(), h.toFloat())
-        return small
-    }
-
-    private fun showCard(preview: Bitmap, text: String) {
-        cardImage.setImageBitmap(preview)
-        cardText.text = "✓ Note added\n" + text.take(40) + if (text.length > 40) "…" else ""
-        card.visibility = View.VISIBLE
-        cardJob?.cancel()
-        cardJob = scope.launch { delay(5000); hideCard() }
-    }
-
-    private fun hideCard() {
-        cardJob?.cancel()
-        card.visibility = View.GONE
     }
 
     private fun showMessage(msg: String) {
         transcript.visibility = View.VISIBLE
         transcript.text = msg
-        scope.launch { delay(2500); if (!voice.isListening) transcript.visibility = View.GONE }
+        scope.launch { delay(2500); transcript.visibility = View.GONE }
     }
 
-    private fun undoLast() {
-        val uri = lastCapture ?: return
-        lastCapture = null
-        hideCard()
-        scope.launch {
-            withContext(Dispatchers.IO) {
-                NoteStore.get(this@OverlayService).save(uri, emptyList())
-                runCatching { contentResolver.delete(uri, null, null) }
-            }
-            showMessage("Removed")
-        }
-    }
-
-    private fun openInApp(uri: Uri?) {
-        hideCard()
+    private fun openInApp(uri: Uri?, noteY: Float = -1f) {
         val i = Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-        if (uri != null) i.setAction(MainActivity.ACTION_OPEN_CAPTURE).setData(uri)
+        if (uri != null) {
+            i.setAction(MainActivity.ACTION_OPEN_CAPTURE).setData(uri)
+                .putExtra(MainActivity.EXTRA_NOTE_Y, noteY)
+                .putExtra(MainActivity.EXTRA_LISTEN, true)
+        }
         startActivity(i)
     }
 
     private fun shutdown() {
-        voice.release()
         grabber?.stop()
         grabber = null
         root?.let { runCatching { wm.removeView(it) } }

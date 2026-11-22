@@ -115,12 +115,12 @@ fun TransparentIntroDialog(c: TransparentModeController) {
             Column {
                 Text("ImageNote shrinks to a small floating bar so you can use your phone normally: open apps, browse websites, anything.")
                 Text(
-                    "Tap the orange mic on any screen. ImageNote captures that screen, you speak, and your words are written onto it as a note.",
+                    "Tap the orange mic on any screen. ImageNote captures that screen and comes straight back with it open and listening. Speak, then edit as usual.",
                     modifier = Modifier.padding(top = 10.dp),
                 )
                 Text(
                     "• Drag the bar up or down to choose where the note goes.\n" +
-                        "• Captures are saved to Pictures/ImageNote/Screens, and you can edit them in the app.\n" +
+                        "• Leave the app again and the bar comes back, ready for the next capture.\n" +
                         "• Android will ask to share your screen. Choose \"Share entire screen\".\n" +
                         "• Tap ✕ on the bar to exit.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

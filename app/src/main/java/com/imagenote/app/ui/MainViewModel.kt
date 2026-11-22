@@ -128,17 +128,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         select(uri)
     }
 
-    /** Open a screenshot captured in transparent mode. */
-    fun openCapture(uri: Uri) {
+    /** Where the first note of a transparent-mode capture goes (height of the floating bar). */
+    private var pendingNoteY: Float? = null
+
+    /**
+     * Open a screenshot captured in transparent mode and, if [listen], start listening right away
+     * so the spoken note lands on it.
+     */
+    fun openCapture(uri: Uri, noteY: Float? = null, listen: Boolean = false) {
         viewModelScope.launch {
             refreshGallery(selectFirst = false).join()
             if (_ui.value.images.none { it.uri == uri }) openExternal(uri)
             else { _ui.update { it.copy(current = null) }; select(uri) }
+            pendingNoteY = noteY
+            if (listen && !voice.isListening) toggleVoice()
         }
     }
 
     fun select(uri: Uri) {
         if (_ui.value.current == uri) return
+        pendingNoteY = null
         voice.cancel()
         undo.clear()
         redo.clear()
@@ -192,6 +201,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Where the next spoken note goes (also used for the live preview while speaking). */
     fun nextNotePosition(text: String = "Ag"): Pair<Float, Float> {
         val s = _ui.value
+        if (s.notes.isEmpty()) pendingNoteY?.let { return 0.5f to it }
         if (!s.settings.stackNotes || s.notes.isEmpty()) return 0.5f to 0.14f
         val aspect = if (s.aspect > 0f) s.aspect else 1f
         val w = 1000f
@@ -208,6 +218,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun addNote(text: String) {
         val (x, y) = nextNotePosition(text)
+        pendingNoteY = null
         val note = TextNote(text = text, x = x, y = y, style = _ui.value.defaultStyle)
         pushUndo()
         _ui.update { it.copy(notes = it.notes + note, selectedNoteId = note.id) }
