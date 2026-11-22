@@ -146,7 +146,7 @@ data class TextNote(
 
 data class AppSettings(
     /** How long the user must be quiet before the note is finished. */
-    val silenceMillis: Long = 2000L,
+    val silenceMillis: Long = 1500L,
     val preferOnDevice: Boolean = true,
     /** BCP-47 tag, empty = device language. */
     val language: String = "",

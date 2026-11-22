@@ -143,7 +143,8 @@ class OverlayService : Service() {
             .setOngoing(true)
             .addAction(Notification.Action.Builder(null, "Stop", stop).build())
             .build()
-        val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+        // Microphone type lets recording start while ImageNote is still in the background.
+        val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
         startForeground(NOTIFICATION_ID, n, type)
     }
 
@@ -280,6 +281,13 @@ class OverlayService : Service() {
         if (busy) return
         val g = grabber ?: return
         busy = true
+        // Start recording right now, before the capture and before ImageNote is back on screen,
+        // so nothing said straight after the tap is lost. The app's recogniser picks this up.
+        com.imagenote.app.speech.AudioPump.start()
+        scope.launch {
+            delay(9000)
+            if (com.imagenote.app.speech.AudioPump.abandoned()) com.imagenote.app.speech.AudioPump.stop()
+        }
         scope.launch {
             try {
                 val r = root ?: return@launch
@@ -290,12 +298,13 @@ class OverlayService : Service() {
                 val shot = g.capture()
                 r.alpha = 1f
                 if (shot == null) {
+                    com.imagenote.app.speech.AudioPump.stop()
                     showMessage("Couldn't capture the screen")
                     return@launch
                 }
                 showMessage("Opening ImageNote…")
                 val uri = runCatching { Exporter.saveScreenshot(this@OverlayService, shot, "") }
-                    .getOrElse { showMessage("Couldn't save: ${it.message}"); return@launch }
+                    .getOrElse { com.imagenote.app.speech.AudioPump.stop(); showMessage("Couldn't save: ${it.message}"); return@launch }
                 shot.recycle()
                 openInApp(uri, noteY)
             } finally {

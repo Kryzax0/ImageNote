@@ -3,14 +3,16 @@
 Quick voice notes written straight onto your photos. Built for the Galaxy Z Fold 7.
 
 Open the app and your recent photos appear in a side-scrolling reel. Pick one, tap the mic and speak.
-When you stop talking for a couple of seconds, your words are written on the image in white
+When you stop talking for 1.5 seconds, your words are written on the image in white
 handwriting with a black outline, slightly italic, on a transparent background.
 
 ## Features
 
 - **Recent-photo reel** that updates automatically when you take a photo or screenshot.
   "Browse" opens the system photo picker for older images.
-- **Voice to text on the image.** The note finishes after a pause you choose (1–6 s, default 2 s).
+- **Voice to text on the image.** Recording starts the instant you tap: audio is buffered while
+  the speech recogniser warms up, so your first word isn't cut off. The note finishes after a
+  pause you choose (1–6 s, default 1.5 s).
   Live text appears on the photo as you speak. It uses on-device recognition when available, so it
   works offline. Tap the mic again to finish early.
 - **Edit notes right on the photo.** Tap a note to select it, then:
@@ -38,7 +40,7 @@ handwriting with a black outline, slightly italic, on a transparent background.
 Tap **Transparent** (top-right of the editor) and ImageNote shrinks to a small floating bar.
 Use your phone normally (other apps, websites, maps…) and tap the orange mic on any screen:
 
-1. The bar hides itself and ImageNote captures what's on screen.
+1. Recording starts immediately. The bar hides itself and ImageNote captures what's on screen.
 2. ImageNote switches back to normal mode with that screenshot open and is **already listening**.
    Your words appear live on the screenshot.
 3. After the pause the note is placed, and you can edit everything as usual: drag, resize,

@@ -74,6 +74,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var persistJob: Job? = null
 
     init {
+        // Warm up the speech recogniser so the first tap starts listening without delay.
+        voice.prepare(_ui.value.settings)
         // Notes added from transparent mode show up as badges in the reel.
         viewModelScope.launch {
             noteStore.changes.collect { _ui.update { it.copy(annotated = noteStore.annotatedUris()) } }

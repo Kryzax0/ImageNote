@@ -57,6 +57,13 @@ class VoiceCapture(private val context: Context, private val scope: CoroutineSco
     private var watchdog: Job? = null
     private var busyRetries = 0
 
+    // Streaming our own buffered mic audio to the recogniser (Android 13+), so recording
+    // effectively starts the moment the button is tapped.
+    private val prefs = context.getSharedPreferences("voice", Context.MODE_PRIVATE)
+    private var pipeMode = false
+    private var pipeConfirmed = false
+    private var source: android.os.ParcelFileDescriptor? = null
+
     val isListening get() = active
 
     fun isAvailable(): Boolean = SpeechRecognizer.isRecognitionAvailable(context) ||
@@ -76,15 +83,31 @@ class VoiceCapture(private val context: Context, private val scope: CoroutineSco
         active = true
         publish()
         if (!isAvailable()) {
+            AudioPump.stop()
             fail("Speech recognition isn't available. Install or enable Google speech services.")
             return
         }
-        createRecognizer(preferOnDevice = settings.preferOnDevice)
+        // Start capturing audio immediately (it may already be running if transparent mode
+        // started it when the floating mic was tapped).
+        pipeConfirmed = false
+        pipeMode = Build.VERSION.SDK_INT >= 33 && prefs.getInt("pipeFailures", 0) < 2 && AudioPump.start()
+        if (pipeMode) AudioPump.claim() else AudioPump.stop()
+        ensureRecognizer(settings.preferOnDevice)
         listen()
         watchdog = scope.launch {
             while (isActive && active) {
                 delay(100)
                 val now = SystemClock.elapsedRealtime()
+                if (pipeMode) {
+                    level = AudioPump.level
+                    publish()
+                    if (!pipeConfirmed) {
+                        if (AudioPump.bytesDelivered > 96_000) {
+                            pipeConfirmed = true
+                            prefs.edit().putInt("pipeFailures", 0).apply()
+                        } else if (AudioPump.isStalled(3000)) abandonPipe(restart = false)
+                    }
+                }
                 if (heardSpeech && now - lastSpeechAt >= settings.silenceMillis) {
                     finish()
                 } else if (!heardSpeech && now - startedAt >= maxOf(8000L, settings.silenceMillis + 6000L)) {
@@ -117,6 +140,38 @@ class VoiceCapture(private val context: Context, private val scope: CoroutineSco
         if (_state.value is VoiceState.Error) _state.value = VoiceState.Idle
     }
 
+    /** Create the recogniser ahead of time so the first tap starts faster. */
+    fun prepare(settings: AppSettings) {
+        if (!active) runCatching { ensureRecognizer(settings.preferOnDevice) }
+    }
+
+    private fun ensureRecognizer(preferOnDevice: Boolean) {
+        val wantOnDevice = preferOnDevice && Build.VERSION.SDK_INT >= 33 &&
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        if (recognizer == null || wantOnDevice != usingOnDevice) createRecognizer(preferOnDevice)
+    }
+
+    /**
+     * The recogniser ignored or rejected our audio stream: stop our own recording so it can use
+     * the microphone directly. After two failures streaming isn't tried again on this phone.
+     */
+    private fun abandonPipe(restart: Boolean) {
+        if (!pipeMode) return
+        pipeMode = false
+        prefs.edit().putInt("pipeFailures", prefs.getInt("pipeFailures", 0) + 1).apply()
+        AudioPump.stop()
+        closeSource()
+        if (restart) {
+            runCatching { recognizer?.cancel() }
+            restartSoon(50)
+        }
+    }
+
+    private fun closeSource() {
+        runCatching { source?.close() }
+        source = null
+    }
+
     private fun createRecognizer(preferOnDevice: Boolean) {
         recognizer?.destroy()
         usingOnDevice = preferOnDevice && Build.VERSION.SDK_INT >= 33 &&
@@ -135,7 +190,6 @@ class VoiceCapture(private val context: Context, private val scope: CoroutineSco
         putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
         putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, settings.silenceMillis)
         putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, settings.silenceMillis)
-        putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 10_000L)
         if (settings.language.isNotBlank()) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, settings.language)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, settings.language)
@@ -144,6 +198,20 @@ class VoiceCapture(private val context: Context, private val scope: CoroutineSco
             putExtra(RecognizerIntent.EXTRA_ENABLE_FORMATTING, RecognizerIntent.FORMATTING_OPTIMIZE_QUALITY)
         }
         if (usingOnDevice) putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+        if (pipeMode && Build.VERSION.SDK_INT >= 33) {
+            val src = AudioPump.newSource()
+            if (src == null) {
+                pipeMode = false
+                AudioPump.stop()
+            } else {
+                closeSource()
+                source = src
+                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, src)
+                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1)
+                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, android.media.AudioFormat.ENCODING_PCM_16BIT)
+                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, AudioPump.SAMPLE_RATE)
+            }
+        }
     }
 
     private fun listen() {
@@ -184,6 +252,8 @@ class VoiceCapture(private val context: Context, private val scope: CoroutineSco
         if (!active) return
         active = false
         watchdog?.cancel()
+        AudioPump.stop()
+        closeSource()
         val text = postProcess(currentText())
         runCatching { recognizer?.cancel() }
         _state.value = VoiceState.Idle
@@ -200,6 +270,8 @@ class VoiceCapture(private val context: Context, private val scope: CoroutineSco
         }
         active = false
         watchdog?.cancel()
+        AudioPump.stop()
+        closeSource()
         runCatching { recognizer?.cancel() }
         onFinished = null
         _state.value = VoiceState.Error(message)
@@ -223,6 +295,7 @@ class VoiceCapture(private val context: Context, private val scope: CoroutineSco
         }
 
         override fun onRmsChanged(rmsdB: Float) {
+            if (pipeMode) return // our own meter is used instead
             // Typical range is about -2..10 dB.
             level = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
             publish()
@@ -255,6 +328,11 @@ class VoiceCapture(private val context: Context, private val scope: CoroutineSco
 
         override fun onError(error: Int) {
             if (!active) return
+            if (pipeMode && !pipeConfirmed && error == SpeechRecognizer.ERROR_AUDIO) {
+                commit(partial)
+                abandonPipe(restart = true)
+                return
+            }
             when (error) {
                 SpeechRecognizer.ERROR_NO_MATCH,
                 SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {

@@ -129,8 +129,15 @@ class NoteStore private constructor(context: Context) {
 class SettingsStore(context: Context) {
     private val prefs = context.getSharedPreferences("imagenote", Context.MODE_PRIVATE)
 
-    fun loadSettings(): AppSettings =
-        AppSettings.fromJson(prefs.getString("settings", null)?.let { runCatching { JSONObject(it) }.getOrNull() })
+    fun loadSettings(): AppSettings {
+        val s = AppSettings.fromJson(prefs.getString("settings", null)?.let { runCatching { JSONObject(it) }.getOrNull() })
+        // v2: the default pause before a note finishes went from 2 s to 1.5 s.
+        if (!prefs.getBoolean("silenceV2", false)) {
+            prefs.edit().putBoolean("silenceV2", true).apply()
+            if (s.silenceMillis == 2000L) return s.copy(silenceMillis = 1500L).also(::saveSettings)
+        }
+        return s
+    }
 
     fun saveSettings(s: AppSettings) = prefs.edit().putString("settings", s.toJson().toString()).apply()
 
